@@ -1,0 +1,306 @@
+#!/bin/bash
+
+# Pocket Network Application Restaking Script
+# This script reads app-service mappings and restakes applications with current stake + 1
+
+set -e  # Exit on any error
+
+# Configuration
+FEES="200000upokt"
+CHAIN_ID="pocket-beta"
+APP_SVC_MAP_FILE="app-svc-map.txt"
+TEMP_CONFIG_DIR="/tmp"
+HOME_DIR="./betaapps/"
+RESTAKE_AMOUNT="10000000000"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Function to print colored output
+print_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Function to display usage
+usage() {
+    cat << EOF
+Usage: $0 [OPTIONS]
+
+Options:
+    -f, --file FILE         Path to app-service mapping file (default: app-svc-map.txt)
+    -n, --node NODE         Pocket node endpoint (required)
+    -c, --chain-id ID       Chain ID (default: pocket)
+    --fees FEES             Transaction fees (default: 200000upokt)
+    --home HOME_DIR         Home directory for pocketd (default: /home/ft/.poktroll/)
+    --dry-run               Show what would be executed without running commands
+    --single APP_ADDRESS    Restake only a single application by address
+    -h, --help              Show this help message
+
+Environment Variables:
+    MAINNODE or POCKET_NODE - Pocket node endpoint (can be used instead of -n)
+
+Examples:
+    $0 --node \$MAINNODE
+    $0 -f my-apps.txt --node tcp://localhost:26657 --dry-run
+    $0 --single pokt165uqhq43j7xqjnlv53kzsfjn55kecpg4ejyfns --node \$MAINNODE
+    $0 --home /custom/path/.poktroll/ --node \$MAINNODE
+
+EOF
+}
+
+# Function to get current stake amount for an application
+get_current_stake() {
+    local app_address="$1"
+    
+    # Print info messages to stderr so they don't interfere with command substitution
+    print_info "Querying current stake for application: $app_address" >&2
+    
+    # Query the application details
+    local query_cmd="pocketd query application show-application \"$app_address\" --node=\"$NODE\" --chain-id \"$CHAIN_ID\" --home \"$HOME_DIR\" --output json"
+    
+    if [ "$DRY_RUN" = true ]; then
+        print_warning "DRY RUN - Executing query: $query_cmd" >&2
+    fi
+    
+    local query_result
+    if ! query_result=$(eval "$query_cmd" 2>/dev/null); then
+        print_error "Failed to query application: $app_address" >&2
+        return 1
+    fi
+    
+    # Extract the stake amount using jq or grep/awk fallback
+    local current_amount
+    if command -v jq >/dev/null 2>&1; then
+        current_amount=$(echo "$query_result" | jq -r '.application.stake.amount // empty')
+    else
+        # Fallback using grep and sed for systems without jq
+        current_amount=$(echo "$query_result" | grep -o '"amount"[[:space:]]*:[[:space:]]*"[0-9]*"' | sed 's/.*"\([0-9]*\)".*/\1/')
+    fi
+    
+    if [ -z "$current_amount" ] || [ "$current_amount" = "null" ]; then
+        print_error "Could not extract current stake amount for $app_address" >&2
+        return 1
+    fi
+    
+    print_info "Current stake amount: ${current_amount}upokt" >&2
+    echo "$current_amount"
+}
+
+# Function to create temporary config file
+create_config_file() {
+    local service_id="$1"
+    local stake_amount="$2"
+    local config_file="$3"
+    
+    cat > "$config_file" << EOF
+stake_amount: ${stake_amount}upokt
+service_ids:
+  - "$service_id"
+EOF
+    
+    print_info "Created config file: $config_file"
+}
+
+# Function to restake a single application
+restake_application() {
+    local app_address="$1"
+    local service_id="$2"
+    local config_file="$TEMP_CONFIG_DIR/restake_app_${app_address}_config.yaml"
+    
+    print_info "Processing application: $app_address -> service: $service_id"
+    
+    # Get current stake amount
+    local current_stake
+    if ! current_stake=$(get_current_stake "$app_address"); then
+        print_error "Failed to get current stake for: $app_address"
+        return 1
+    fi
+    
+    # Increment stake by 1
+    local new_stake=$((current_stake + $RESTAKE_AMOUNT))
+    print_info "New stake amount: ${new_stake}upokt (current: ${current_stake}upokt + $RESTAKE_AMOUNT)"
+    
+    # Create temporary config file
+    create_config_file "$service_id" "$new_stake" "$config_file"
+    
+    # Construct the staking command
+    local cmd="pocketd tx application stake-application --config=\"$config_file\" --from \"$app_address\" --node=\"$NODE\" --chain-id \"$CHAIN_ID\" --fees \"$FEES\" --home \"$HOME_DIR\" -y"
+    
+    if [ "$DRY_RUN" = true ]; then
+        print_warning "DRY RUN - Would execute: $cmd"
+        return 0
+    fi
+    
+    print_info "Executing restaking command for $app_address..."
+    
+    # Execute the command
+    if eval "$cmd"; then
+        print_success "Successfully restaked application: $app_address (${new_stake}upokt)"
+        
+        # Clean up temporary config file
+        rm -f "$config_file"
+    else
+        print_error "Failed to restake application: $app_address"
+        return 1
+    fi
+    
+    echo "----------------------------------------"
+}
+
+# Parse command line arguments
+NODE="https://shannon-testnet-grove-rpc.beta.poktroll.com"
+DRY_RUN=false
+SINGLE_APP=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -f|--file)
+            APP_SVC_MAP_FILE="$2"
+            shift 2
+            ;;
+        -n|--node)
+            NODE="$2"
+            shift 2
+            ;;
+        -c|--chain-id)
+            CHAIN_ID="$2"
+            shift 2
+            ;;
+        --fees)
+            FEES="$2"
+            shift 2
+            ;;
+        --home)
+            HOME_DIR="$2"
+            shift 2
+            ;;
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        --single)
+            SINGLE_APP="$2"
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            print_error "Unknown option: $1"
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+# Check for node endpoint
+if [ -z "$NODE" ]; then
+    if [ -n "$MAINNODE" ]; then
+        NODE="$MAINNODE"
+    elif [ -n "$POCKET_NODE" ]; then
+        NODE="$POCKET_NODE"
+    else
+        print_error "Node endpoint is required. Use -n/--node option or set MAINNODE/POCKET_NODE environment variable."
+        exit 1
+    fi
+fi
+
+# Clean up NODE variable if it contains --node= prefix
+NODE=$(echo "$NODE" | sed 's/^--node=//')
+
+print_info "Using node endpoint: $NODE"
+print_info "Chain ID: $CHAIN_ID"
+print_info "Fees: $FEES"
+print_info "Home directory: $HOME_DIR"
+
+if [ "$DRY_RUN" = true ]; then
+    print_warning "DRY RUN MODE - No actual transactions will be executed"
+fi
+
+echo "========================================"
+
+# Handle single application restaking
+if [ -n "$SINGLE_APP" ]; then
+    print_info "Single application mode: $SINGLE_APP"
+    
+    # Find the service for this application
+    if [ ! -f "$APP_SVC_MAP_FILE" ]; then
+        print_error "App-service mapping file not found: $APP_SVC_MAP_FILE"
+        exit 1
+    fi
+    
+    service_id=$(grep "^$SINGLE_APP" "$APP_SVC_MAP_FILE" | awk '{print $2}')
+    
+    if [ -z "$service_id" ]; then
+        print_error "Application address not found in mapping file: $SINGLE_APP"
+        exit 1
+    fi
+    
+    restake_application "$SINGLE_APP" "$service_id"
+    exit 0
+fi
+
+# Check if the app-service mapping file exists
+if [ ! -f "$APP_SVC_MAP_FILE" ]; then
+    print_error "App-service mapping file not found: $APP_SVC_MAP_FILE"
+    exit 1
+fi
+
+print_info "Reading app-service mappings from: $APP_SVC_MAP_FILE"
+
+# Count total applications
+total_apps=$(wc -l < "$APP_SVC_MAP_FILE")
+print_info "Total applications to process: $total_apps"
+
+echo "========================================"
+
+# Process each line in the mapping file
+current_app=0
+failed_apps=0
+
+while IFS=$'\t' read -r app_address service_id; do
+    # Skip empty lines
+    [ -z "$app_address" ] && continue
+    
+    current_app=$((current_app + 1))
+    print_info "Processing application $current_app/$total_apps"
+    
+    if ! restake_application "$app_address" "$service_id"; then
+        failed_apps=$((failed_apps + 1))
+        print_warning "Continuing with next application..."
+    fi
+    
+    # Add a small delay between transactions to avoid overwhelming the network
+    if [ "$DRY_RUN" = false ]; then
+        sleep 2
+    fi
+    
+done < "$APP_SVC_MAP_FILE"
+
+echo "========================================"
+print_info "Processing complete!"
+print_info "Total applications processed: $current_app"
+
+if [ $failed_apps -gt 0 ]; then
+    print_warning "Failed applications: $failed_apps"
+    exit 1
+else
+    print_success "All applications restaked successfully!"
+fi

@@ -1,0 +1,81 @@
+#!/bin/bash
+
+# Script: generate-multi-send-command
+# Purpose: Generate a single multi-send command for all addresses in beta-addresses.txt
+# Usage: ./generate-multi-send-command
+
+set -e
+
+# Configuration
+INPUT_FILE="beta-addresses.txt"
+AMOUNT="10000000000upokt"
+SENDER="faucet_beta"
+CHAIN_ID="pocket-beta"
+NODE="https://shannon-testnet-grove-rpc.beta.poktroll.com"
+FEES="--yes --gas=auto --gas-prices=1upokt --gas-adjustment=1.5"
+HOME_DIR="./betaapps/"
+
+# Colors for output
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+echo -e "${GREEN}Generating multi-send command...${NC}"
+
+# Check if input file exists
+if [ ! -f "$INPUT_FILE" ]; then
+    echo "Error: Input file '$INPUT_FILE' not found!"
+    exit 1
+fi
+
+# Count addresses
+total_addresses=$(grep -c . "$INPUT_FILE")
+echo "Found $total_addresses addresses to fund"
+
+# Build the recipient arguments (just addresses, amount comes at the end)
+recipients=""
+while IFS= read -r address; do
+    # Skip empty lines
+    if [ -z "$address" ]; then
+        continue
+    fi
+    
+    # Trim whitespace
+    address=$(echo "$address" | tr -d '[:space:]')
+    recipients="$recipients $address"
+done < "$INPUT_FILE"
+
+# Calculate total amount for all recipients (since we want 5M each)
+total_amount=$((total_addresses * 10000000000))
+echo "Total amount to send: ${total_amount}upokt (${total_addresses} × 5000000upokt)"
+
+# Generate the complete command
+command="pocketd tx bank multi-send $SENDER$recipients ${total_amount}upokt --split --chain-id $CHAIN_ID --node=$NODE $FEES --home $HOME_DIR --yes"
+
+echo
+echo -e "${YELLOW}Generated multi-send command:${NC}"
+echo
+echo "$command"
+
+# Save to file for easy copy/paste
+echo "$command" > multi-send-command.txt
+echo
+echo "Command saved to: multi-send-command.txt"
+
+# Show execution instructions
+echo
+echo -e "${GREEN}To execute:${NC}"
+echo "1. Review the command above"
+echo "2. Copy and paste it, or run: bash multi-send-command.txt"
+echo "3. This will send 5000000upokt to each of the $total_addresses addresses (using --split flag)"
+
+# Calculate estimated fees vs individual transactions
+individual_fees=$((total_addresses * 200000))
+savings=$((individual_fees - 200000))
+echo
+echo -e "${GREEN}Benefits of multi-send:${NC}"
+echo "• Single transaction instead of $total_addresses individual ones"
+echo "• Fees: 200000upokt vs ${individual_fees}upokt (saves ${savings}upokt)"
+echo "• Atomic: all transfers succeed or all fail together"
+echo "• Much faster execution"
+echo "• Total funding: ${total_amount}upokt (5M per address)"
