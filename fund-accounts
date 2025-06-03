@@ -89,15 +89,15 @@ echo
 echo "$command"
 
 # Save to file for easy copy/paste
-echo "$command" > multi-send-command.txt
+echo "$command" > /tmp/multi-send-command.txt
 echo
-echo "Command saved to: multi-send-command.txt"
+echo "Command saved to: /tmp/multi-send-command.txt"
 
 # Show execution instructions
 echo
 echo -e "${GREEN}To execute:${NC}"
 echo "1. Review the command above"
-echo "2. Copy and paste it, or run: bash multi-send-command.txt"
+echo "2. Copy and paste it, or run: bash /tmp/multi-send-command.txt"
 echo "3. This will send $AMOUNT to each of the $total_addresses addresses (using --split flag)"
 
 # Calculate estimated fees vs individual transactions
