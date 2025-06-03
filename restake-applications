@@ -5,13 +5,13 @@
 
 set -e  # Exit on any error
 
-# Configuration
-FEES="200000upokt"
-CHAIN_ID="pocket"
-APP_SVC_MAP_FILE="app-svc-map.txt"
-TEMP_CONFIG_DIR="/tmp"
-HOME_DIR="/home/ft/.poktroll"
-RESTAKE_AMOUNT="5000000000"
+# Configuration variables (set via command line flags)
+FEES=""
+CHAIN_ID=""
+APP_SVC_MAP_FILE=""
+TEMP_CONFIG_DIR=""
+HOME_DIR=""
+RESTAKE_AMOUNT=""
 
 # Colors for output
 RED='\033[0;31m'
@@ -43,23 +43,27 @@ usage() {
 Usage: $0 [OPTIONS]
 
 Options:
-    -f, --file FILE         Path to app-service mapping file (default: app-svc-map.txt)
+    -f, --file FILE         Path to app-service mapping file (required)
     -n, --node NODE         Pocket node endpoint (required)
-    -c, --chain-id ID       Chain ID (default: pocket)
-    --fees FEES             Transaction fees (default: 200000upokt)
-    --home HOME_DIR         Home directory for pocketd (default: /home/ft/.poktroll/)
+    -c, --chain-id ID       Chain ID (required)
+    --fees FEES             Transaction fees (required)
+    --home HOME_DIR         Home directory for pocketd (required)
+    --temp-dir DIR          Temporary config directory (required)
+    --restake-amount AMOUNT Restake increment amount (required)
     --dry-run               Show what would be executed without running commands
     --single APP_ADDRESS    Restake only a single application by address
     -h, --help              Show this help message
 
 Environment Variables:
-    MAINNODE or POCKET_NODE - Pocket node endpoint (can be used instead of -n)
+    POCKET_NODE - Pocket node endpoint (can be used instead of -n)
 
 Examples:
-    $0 --node \$MAINNODE
-    $0 -f my-apps.txt --node tcp://localhost:26657 --dry-run
-    $0 --single pokt165uqhq43j7xqjnlv53kzsfjn55kecpg4ejyfns --node \$MAINNODE
-    $0 --home /custom/path/.poktroll/ --node \$MAINNODE
+    $0 --node https://shannon-grove-rpc.mainnet.poktroll.com --chain-id pocket --fees 200000upokt --home /home/ft/.poktroll --temp-dir /tmp --restake-amount 5000000000 -f app-svc-map.txt
+    $0 -f my-apps.txt --node https://shannon-grove-rpc.mainnet.poktroll.com --chain-id pocket --fees 200000upokt --home /home/ft/.poktroll --temp-dir /tmp --restake-amount 5000000000 --dry-run
+    $0 --single pokt165uqhq43j7xqjnlv53kzsfjn55kecpg4ejyfns --node https://shannon-grove-rpc.mainnet.poktroll.com --chain-id pocket --fees 200000upokt --home /home/ft/.poktroll --temp-dir /tmp --restake-amount 5000000000 -f app-svc-map.txt
+    $0 --home /custom/path/.poktroll/ --node https://shannon-grove-rpc.mainnet.poktroll.com --chain-id pocket --fees 200000upokt --temp-dir /tmp --restake-amount 5000000000 -f app-svc-map.txt
+    $0 --fees 300000upokt --restake-amount 1000000000 --node https://shannon-grove-rpc.mainnet.poktroll.com --chain-id pocket --home /home/ft/.poktroll --temp-dir /tmp -f app-svc-map.txt
+    $0 --temp-dir /custom/tmp --chain-id testnet --node https://shannon-grove-rpc.mainnet.poktroll.com --fees 200000upokt --home /home/ft/.poktroll --restake-amount 5000000000 -f app-svc-map.txt
 
 EOF
 }
@@ -108,6 +112,12 @@ create_config_file() {
     local stake_amount="$2"
     local config_file="$3"
     
+    # Ensure temp directory exists
+    if [ ! -d "$TEMP_CONFIG_DIR" ]; then
+        mkdir -p "$TEMP_CONFIG_DIR"
+        print_info "Created temporary directory: $TEMP_CONFIG_DIR"
+    fi
+    
     cat > "$config_file" << EOF
 stake_amount: ${stake_amount}upokt
 service_ids:
@@ -132,8 +142,8 @@ restake_application() {
         return 1
     fi
     
-    # Increment stake by 1
-    local new_stake=$((current_stake + $RESTAKE_AMOUNT))
+    # Increment stake by configured amount
+    local new_stake=$((current_stake + RESTAKE_AMOUNT))
     print_info "New stake amount: ${new_stake}upokt (current: ${current_stake}upokt + $RESTAKE_AMOUNT)"
     
     # Create temporary config file
@@ -164,7 +174,7 @@ restake_application() {
 }
 
 # Parse command line arguments
-NODE="https://shannon-grove-rpc.mainnet.poktroll.com"
+NODE=""
 DRY_RUN=false
 SINGLE_APP=""
 
@@ -190,6 +200,14 @@ while [[ $# -gt 0 ]]; do
             HOME_DIR="$2"
             shift 2
             ;;
+        --temp-dir)
+            TEMP_CONFIG_DIR="$2"
+            shift 2
+            ;;
+        --restake-amount)
+            RESTAKE_AMOUNT="$2"
+            shift 2
+            ;;
         --dry-run)
             DRY_RUN=true
             shift
@@ -210,16 +228,45 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Check for node endpoint
+# Validate RESTAKE_AMOUNT is numeric
+if ! [[ "$RESTAKE_AMOUNT" =~ ^[0-9]+$ ]]; then
+    print_error "RESTAKE_AMOUNT must be a positive integer: $RESTAKE_AMOUNT"
+    exit 1
+fi
+
+# Check for required parameters
 if [ -z "$NODE" ]; then
-    if [ -n "$MAINNODE" ]; then
-        NODE="$MAINNODE"
-    elif [ -n "$POCKET_NODE" ]; then
+    if [ -n "$POCKET_NODE" ]; then
         NODE="$POCKET_NODE"
     else
-        print_error "Node endpoint is required. Use -n/--node option or set MAINNODE/POCKET_NODE environment variable."
+        print_error "Node endpoint is required. Use -n/--node option or set POCKET_NODE environment variable."
         exit 1
     fi
+fi
+
+if [ -z "$CHAIN_ID" ]; then
+    print_error "Chain ID is required. Use -c/--chain-id option."
+    exit 1
+fi
+
+if [ -z "$FEES" ]; then
+    print_error "Transaction fees are required. Use --fees option."
+    exit 1
+fi
+
+if [ -z "$HOME_DIR" ]; then
+    print_error "Home directory is required. Use --home option."
+    exit 1
+fi
+
+if [ -z "$TEMP_CONFIG_DIR" ]; then
+    print_error "Temporary config directory is required. Use --temp-dir option."
+    exit 1
+fi
+
+if [ -z "$APP_SVC_MAP_FILE" ]; then
+    print_error "App-service mapping file is required. Use -f/--file option."
+    exit 1
 fi
 
 # Clean up NODE variable if it contains --node= prefix
@@ -229,6 +276,8 @@ print_info "Using node endpoint: $NODE"
 print_info "Chain ID: $CHAIN_ID"
 print_info "Fees: $FEES"
 print_info "Home directory: $HOME_DIR"
+print_info "Temporary config directory: $TEMP_CONFIG_DIR"
+print_info "Restake increment amount: $RESTAKE_AMOUNT"
 
 if [ "$DRY_RUN" = true ]; then
     print_warning "DRY RUN MODE - No actual transactions will be executed"
