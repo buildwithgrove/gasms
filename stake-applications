@@ -6,10 +6,10 @@
 set -e  # Exit on any error
 
 # Configuration variables (set via command line flags)
-FEES=""
+FEES="20000upokt"  # Default fees
 CHAIN_ID=""
 APP_SVC_MAP_FILE=""
-TEMP_CONFIG_DIR=""
+TEMP_CONFIG_DIR="/tmp"  # Default to /tmp
 HOME_DIR=""
 RESTAKE_AMOUNT=""
 
@@ -26,7 +26,7 @@ print_info() {
 }
 
 print_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
+    echo -e "${GREEN}✅ [SUCCESS]${NC} $1"
 }
 
 print_warning() {
@@ -34,7 +34,7 @@ print_warning() {
 }
 
 print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+    echo -e "${RED}❌ [ERROR]${NC} $1"
 }
 
 # Function to display usage
@@ -44,26 +44,26 @@ Usage: $0 [OPTIONS]
 
 Options:
     -f, --file FILE         Path to app-service mapping file (required)
-    -n, --node NODE         Pocket node endpoint (required)
-    -c, --chain-id ID       Chain ID (required)
-    --fees FEES             Transaction fees (required)
+    --network NETWORK       Network to use: 'main' or 'beta' (required)
+    --fees FEES             Transaction fees (default: 20000upokt)
     --home HOME_DIR         Home directory for pocketd (required)
-    --temp-dir DIR          Temporary config directory (required)
+    --temp-dir DIR          Temporary config directory (default: /tmp)
     --restake-amount AMOUNT Restake increment amount (required)
     --dry-run               Show what would be executed without running commands
     --single APP_ADDRESS    Restake only a single application by address
     -h, --help              Show this help message
 
-Environment Variables:
-    POCKET_NODE - Pocket node endpoint (can be used instead of -n)
+Network Options:
+    --network main          Use mainnet (https://shannon-grove-rpc.mainnet.poktroll.com, chain-id: pocket)
+    --network beta          Use beta testnet (https://shannon-testnet-grove-rpc.beta.poktroll.com, chain-id: pocket-beta)
 
 Examples:
-    $0 --node https://shannon-grove-rpc.mainnet.poktroll.com --chain-id pocket --fees 200000upokt --home /home/ft/.poktroll --temp-dir /tmp --restake-amount 5000000000 -f app-svc-map.txt
-    $0 -f my-apps.txt --node https://shannon-grove-rpc.mainnet.poktroll.com --chain-id pocket --fees 200000upokt --home /home/ft/.poktroll --temp-dir /tmp --restake-amount 5000000000 --dry-run
-    $0 --single pokt165uqhq43j7xqjnlv53kzsfjn55kecpg4ejyfns --node https://shannon-grove-rpc.mainnet.poktroll.com --chain-id pocket --fees 200000upokt --home /home/ft/.poktroll --temp-dir /tmp --restake-amount 5000000000 -f app-svc-map.txt
-    $0 --home /custom/path/.poktroll/ --node https://shannon-grove-rpc.mainnet.poktroll.com --chain-id pocket --fees 200000upokt --temp-dir /tmp --restake-amount 5000000000 -f app-svc-map.txt
-    $0 --fees 300000upokt --restake-amount 1000000000 --node https://shannon-grove-rpc.mainnet.poktroll.com --chain-id pocket --home /home/ft/.poktroll --temp-dir /tmp -f app-svc-map.txt
-    $0 --temp-dir /custom/tmp --chain-id testnet --node https://shannon-grove-rpc.mainnet.poktroll.com --fees 200000upokt --home /home/ft/.poktroll --restake-amount 5000000000 -f app-svc-map.txt
+    $0 --network main --home /home/ft/.poktroll --restake-amount 5000000000 -f app-svc-map.txt
+    $0 -f my-apps.txt --network beta --home /home/ft/.poktroll --restake-amount 5000000000 --dry-run
+    $0 --single pokt165uqhq43j7xqjnlv53kzsfjn55kecpg4ejyfns --network main --home /home/ft/.poktroll --restake-amount 5000000000 -f app-svc-map.txt
+    $0 --home /custom/path/.poktroll/ --network main --restake-amount 5000000000 -f app-svc-map.txt
+    $0 --fees 300000upokt --restake-amount 1000000000 --network beta --home /home/ft/.poktroll -f app-svc-map.txt
+    $0 --temp-dir /custom/tmp --network main --home /home/ft/.poktroll --restake-amount 5000000000 -f app-svc-map.txt
 
 EOF
 }
@@ -175,6 +175,7 @@ restake_application() {
 
 # Parse command line arguments
 NODE=""
+NETWORK=""
 DRY_RUN=false
 SINGLE_APP=""
 
@@ -184,12 +185,8 @@ while [[ $# -gt 0 ]]; do
             APP_SVC_MAP_FILE="$2"
             shift 2
             ;;
-        -n|--node)
-            NODE="$2"
-            shift 2
-            ;;
-        -c|--chain-id)
-            CHAIN_ID="$2"
+        --network)
+            NETWORK="$2"
             shift 2
             ;;
         --fees)
@@ -235,32 +232,29 @@ if ! [[ "$RESTAKE_AMOUNT" =~ ^[0-9]+$ ]]; then
 fi
 
 # Check for required parameters
-if [ -z "$NODE" ]; then
-    if [ -n "$POCKET_NODE" ]; then
-        NODE="$POCKET_NODE"
-    else
-        print_error "Node endpoint is required. Use -n/--node option or set POCKET_NODE environment variable."
+if [ -z "$NETWORK" ]; then
+    print_error "Network is required. Use --network option with 'main' or 'beta'."
+    exit 1
+fi
+
+# Set NODE and CHAIN_ID based on network
+case "$NETWORK" in
+    main)
+        NODE="https://shannon-grove-rpc.mainnet.poktroll.com"
+        CHAIN_ID="pocket"
+        ;;
+    beta)
+        NODE="https://shannon-testnet-grove-rpc.beta.poktroll.com"
+        CHAIN_ID="pocket-beta"
+        ;;
+    *)
+        print_error "Invalid network: $NETWORK. Use 'main' or 'beta'."
         exit 1
-    fi
-fi
-
-if [ -z "$CHAIN_ID" ]; then
-    print_error "Chain ID is required. Use -c/--chain-id option."
-    exit 1
-fi
-
-if [ -z "$FEES" ]; then
-    print_error "Transaction fees are required. Use --fees option."
-    exit 1
-fi
+        ;;
+esac
 
 if [ -z "$HOME_DIR" ]; then
     print_error "Home directory is required. Use --home option."
-    exit 1
-fi
-
-if [ -z "$TEMP_CONFIG_DIR" ]; then
-    print_error "Temporary config directory is required. Use --temp-dir option."
     exit 1
 fi
 
@@ -269,9 +263,7 @@ if [ -z "$APP_SVC_MAP_FILE" ]; then
     exit 1
 fi
 
-# Clean up NODE variable if it contains --node= prefix
-NODE=$(echo "$NODE" | sed 's/^--node=//')
-
+print_info "Using network: $NETWORK"
 print_info "Using node endpoint: $NODE"
 print_info "Chain ID: $CHAIN_ID"
 print_info "Fees: $FEES"

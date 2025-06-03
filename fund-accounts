@@ -1,19 +1,43 @@
 #!/bin/bash
 
 # Script: generate-multi-send-command
-# Purpose: Generate a single multi-send command for all addresses in beta-addresses.txt
-# Usage: ./generate-multi-send-command
+# Purpose: Generate a single multi-send command for all addresses in a file
+# Usage: ./generate-multi-send-command <SENDER> <ADDR_FILE> <AMOUNT> <NETWORK> <HOME>
 
 set -e
 
-# Configuration
-INPUT_FILE="beta-addresses.txt"
-AMOUNT="10000000000upokt"
-SENDER="faucet_beta"
-CHAIN_ID="pocket-beta"
-NODE="https://shannon-testnet-grove-rpc.beta.poktroll.com"
+# Check arguments
+if [ $# -ne 5 ]; then
+    echo "Usage: $0 <SENDER> <ADDR_FILE> <AMOUNT> <NETWORK> <HOME>"
+    echo "  SENDER: Sender address or key name"
+    echo "  ADDR_FILE: Path to file containing addresses"
+    echo "  AMOUNT: Amount to send (e.g., 5005000000upokt)"
+    echo "  NETWORK: 'main' or 'beta'"
+    echo "  HOME: Home directory path (e.g., /home/user/.poktroll/)"
+    exit 1
+fi
+
+# Parse arguments
+SENDER="$1"
+INPUT_FILE="$2"
+AMOUNT="$3"
+NETWORK="$4"
+HOME_DIR="$5"
+
+# Network configuration
+if [ "$NETWORK" = "main" ]; then
+    CHAIN_ID="pocket"
+    NODE="https://shannon-grove-rpc.mainnet.poktroll.com"
+elif [ "$NETWORK" = "beta" ]; then
+    CHAIN_ID="pocket-beta"
+    NODE="https://shannon-testnet-grove-rpc.beta.poktroll.com"
+else
+    echo "Error: NETWORK must be 'main' or 'beta'"
+    exit 1
+fi
+
+# Fixed configuration
 FEES="--yes --gas=auto --gas-prices=1upokt --gas-adjustment=1.5"
-HOME_DIR="./betaapps/"
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -21,6 +45,12 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 echo -e "${GREEN}Generating multi-send command...${NC}"
+echo "Sender: $SENDER"
+echo "Network: $NETWORK"
+echo "Chain ID: $CHAIN_ID"
+echo "Node: $NODE"
+echo "Home directory: $HOME_DIR"
+echo "Amount per address: $AMOUNT"
 
 # Check if input file exists
 if [ ! -f "$INPUT_FILE" ]; then
@@ -45,9 +75,10 @@ while IFS= read -r address; do
     recipients="$recipients $address"
 done < "$INPUT_FILE"
 
-# Calculate total amount for all recipients (since we want 5M each)
-total_amount=$((total_addresses * 10000000000))
-echo "Total amount to send: ${total_amount}upokt (${total_addresses} × 5000000upokt)"
+# Calculate total amount for all recipients
+AMOUNT_NUMERIC=${AMOUNT%upokt}
+total_amount=$((total_addresses * AMOUNT_NUMERIC)) 
+echo "Total amount to send: ${total_amount}upokt"
 
 # Generate the complete command
 command="pocketd tx bank multi-send $SENDER$recipients ${total_amount}upokt --split --chain-id $CHAIN_ID --node=$NODE $FEES --home $HOME_DIR --yes"
@@ -67,15 +98,12 @@ echo
 echo -e "${GREEN}To execute:${NC}"
 echo "1. Review the command above"
 echo "2. Copy and paste it, or run: bash multi-send-command.txt"
-echo "3. This will send 5000000upokt to each of the $total_addresses addresses (using --split flag)"
+echo "3. This will send $AMOUNT to each of the $total_addresses addresses (using --split flag)"
 
 # Calculate estimated fees vs individual transactions
-individual_fees=$((total_addresses * 200000))
-savings=$((individual_fees - 200000))
 echo
 echo -e "${GREEN}Benefits of multi-send:${NC}"
 echo "• Single transaction instead of $total_addresses individual ones"
-echo "• Fees: 200000upokt vs ${individual_fees}upokt (saves ${savings}upokt)"
 echo "• Atomic: all transfers succeed or all fail together"
 echo "• Much faster execution"
-echo "• Total funding: ${total_amount}upokt (5M per address)"
+echo "• Total funding: ${total_amount}upokt"
