@@ -1,0 +1,29 @@
+Container {
+    height: 1fr;
+    width: 1fr;
+}
+
+#splash {
+    color: cyan;
+    text-style: bold;
+    padding: 1;
+    content-align: center middle;
+}
+
+#commands {
+    content-align: left middle;
+    width: 1fr;
+    color: white;
+}
+
+#logo {
+    content-align: right middle;
+    width: auto;
+    color: green;
+    text-style: bold;
+}
+
+DataTable {
+    height: 1fr;
+    width: 1fr;
+}

@@ -10,7 +10,7 @@ FEES="20000upokt"  # Default fees
 CHAIN_ID=""
 APP_SVC_MAP_FILE=""
 TEMP_CONFIG_DIR="/tmp"  # Default to /tmp
-HOME_DIR=""
+HOME_DIR="$HOME/.pocket"  # Default to ~/.pocket
 RESTAKE_AMOUNT=""
 
 # Colors for output
@@ -46,7 +46,7 @@ Options:
     -f, --file FILE         Path to app-service mapping file (required)
     --network NETWORK       Network to use: 'main' or 'beta' (required)
     --fees FEES             Transaction fees (default: 20000upokt)
-    --home HOME_DIR         Home directory for pocketd (required)
+    --home HOME_DIR         Home directory for pocketd (default: ~/.pocket)
     --temp-dir DIR          Temporary config directory (default: /tmp)
     --restake-amount AMOUNT Restake increment amount (required)
     --dry-run               Show what would be executed without running commands
@@ -84,8 +84,18 @@ get_current_stake() {
     
     local query_result
     if ! query_result=$(eval "$query_cmd" 2>/dev/null); then
-        print_error "Failed to query application: $app_address" >&2
-        return 1
+        # Check if the error indicates application not found
+        local error_output
+        error_output=$(eval "$query_cmd" 2>&1 || true)
+        if echo "$error_output" | grep -q "application not found\|key not found"; then
+            print_warning "Application not found: $app_address - treating as new application" >&2
+            echo "NEW_APPLICATION"
+            return 0
+        else
+            print_error "Failed to query application: $app_address" >&2
+            print_error "Error: $error_output" >&2
+            return 1
+        fi
     fi
     
     # Extract the stake amount using jq or grep/awk fallback
@@ -142,9 +152,20 @@ restake_application() {
         return 1
     fi
     
-    # Increment stake by configured amount
-    local new_stake=$((current_stake + RESTAKE_AMOUNT))
-    print_info "New stake amount: ${new_stake}upokt (current: ${current_stake}upokt + $RESTAKE_AMOUNT)"
+    local new_stake
+    local is_new_app=false
+    
+    if [ "$current_stake" = "NEW_APPLICATION" ]; then
+        # This is a new application, use just the restake amount
+        new_stake="$RESTAKE_AMOUNT"
+        is_new_app=true
+        print_warning "Staking new application: $app_address"
+        print_info "New stake amount: ${new_stake}upokt (new application)"
+    else
+        # Existing application, increment stake by configured amount
+        new_stake=$((current_stake + RESTAKE_AMOUNT))
+        print_info "New stake amount: ${new_stake}upokt (current: ${current_stake}upokt + $RESTAKE_AMOUNT)"
+    fi
     
     # Create temporary config file
     create_config_file "$service_id" "$new_stake" "$config_file"
@@ -153,20 +174,36 @@ restake_application() {
     local cmd="pocketd tx application stake-application --config=\"$config_file\" --from \"$app_address\" --node=\"$NODE\" --chain-id \"$CHAIN_ID\" --fees \"$FEES\" --home \"$HOME_DIR\" -y"
     
     if [ "$DRY_RUN" = true ]; then
-        print_warning "DRY RUN - Would execute: $cmd"
+        if [ "$is_new_app" = true ]; then
+            print_warning "DRY RUN - Would execute (NEW APP): $cmd"
+        else
+            print_warning "DRY RUN - Would execute (RESTAKE): $cmd"
+        fi
         return 0
     fi
     
-    print_info "Executing restaking command for $app_address..."
+    if [ "$is_new_app" = true ]; then
+        print_info "Executing staking command for new application $app_address..."
+    else
+        print_info "Executing restaking command for $app_address..."
+    fi
     
     # Execute the command
     if eval "$cmd"; then
-        print_success "Successfully restaked application: $app_address (${new_stake}upokt)"
+        if [ "$is_new_app" = true ]; then
+            print_success "Successfully staked new application: $app_address (${new_stake}upokt)"
+        else
+            print_success "Successfully restaked application: $app_address (${new_stake}upokt)"
+        fi
         
         # Clean up temporary config file
         rm -f "$config_file"
     else
-        print_error "Failed to restake application: $app_address"
+        if [ "$is_new_app" = true ]; then
+            print_error "Failed to stake new application: $app_address"
+        else
+            print_error "Failed to restake application: $app_address"
+        fi
         return 1
     fi
     
