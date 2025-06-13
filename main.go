@@ -18,23 +18,28 @@ const (
 	stateTable
 	stateCommand
 	stateSearch
+	stateNetworkSelect
 )
 
 type model struct {
-	state        state
-	config       *Config
-	applications []Application
-	cursor       int
-	commandInput string
-	searchInput  string
-	searchResults []int
-	searchIndex  int
-	err          error
-	loading      bool
-	width        int
-	height       int
-	splashArt    string
-	logoLine     string
+	state          state
+	config         *Config
+	applications   []Application
+	cursor         int
+	commandInput   string
+	searchInput    string
+	searchResults  []int
+	searchIndex    int
+	err            error
+	loading        bool
+	width          int
+	height         int
+	splashArt      string
+	logoLine       string
+	currentNetwork string
+	currentGateway string
+	networkList    []string
+	networkCursor  int
 }
 
 type applicationsLoadedMsg struct {
@@ -112,8 +117,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.config = msg.config
 		
-		// Start loading applications from main network
+		// Build network list and set defaults
+		m.networkList = []string{}
+		for name := range m.config.Config.Networks {
+			m.networkList = append(m.networkList, name)
+		}
+		
+		// Default to main network
+		m.currentNetwork = "main"
 		if mainNetwork, exists := m.config.Config.Networks["main"]; exists && len(mainNetwork.Gateways) > 0 {
+			m.currentGateway = mainNetwork.Gateways[0]
 			return m, loadApplicationsCmd(mainNetwork.RPCEndpoint, mainNetwork.Gateways[0])
 		}
 		m.err = fmt.Errorf("main network not found in config")
@@ -125,6 +138,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.applications = msg.apps
+		m.loading = false // clear loading state
 		
 	case string:
 		if msg == "boot_complete" && m.config != nil {
@@ -143,8 +157,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case stateCommand:
 			return m.updateCommand(msg)
 			
-		case stateSearch:
-			return m.updateSearch(msg)
+		case stateNetworkSelect:
+			return m.updateNetworkSelect(msg)
 		}
 	}
 
@@ -164,11 +178,15 @@ func (m model) updateTable(msg tea.KeyMsg) (model, tea.Cmd) {
 		m.state = stateSearch
 		m.searchInput = ""
 		
+	case "n":
+		m.state = stateNetworkSelect
+		m.networkCursor = 0
+		
 	case "r":
 		if m.config != nil {
-			if mainNetwork, exists := m.config.Config.Networks["main"]; exists && len(mainNetwork.Gateways) > 0 {
+			if network, exists := m.config.Config.Networks[m.currentNetwork]; exists && len(network.Gateways) > 0 {
 				m.loading = true
-				return m, loadApplicationsCmd(mainNetwork.RPCEndpoint, mainNetwork.Gateways[0])
+				return m, loadApplicationsCmd(network.RPCEndpoint, network.Gateways[0])
 			}
 		}
 		
@@ -201,6 +219,9 @@ func (m model) updateCommand(msg tea.KeyMsg) (model, tea.Cmd) {
 		switch cmd {
 		case "q", "quit":
 			return m, tea.Quit
+		case "n", "network":
+			m.state = stateNetworkSelect
+			m.networkCursor = 0
 		}
 		
 	case "esc":
@@ -260,6 +281,38 @@ func (m *model) performSearch() {
 	}
 }
 
+func (m model) updateNetworkSelect(msg tea.KeyMsg) (model, tea.Cmd) {
+	switch msg.String() {
+	case "enter":
+		if m.networkCursor < len(m.networkList) {
+			selectedNetwork := m.networkList[m.networkCursor]
+			if network, exists := m.config.Config.Networks[selectedNetwork]; exists && len(network.Gateways) > 0 {
+				m.currentNetwork = selectedNetwork
+				m.currentGateway = network.Gateways[0]
+				m.state = stateTable
+				m.loading = true
+				return m, loadApplicationsCmd(network.RPCEndpoint, network.Gateways[0])
+			}
+		}
+		m.state = stateTable
+		
+	case "esc", "q":
+		m.state = stateTable
+		
+	case "up", "k":
+		if m.networkCursor > 0 {
+			m.networkCursor--
+		}
+		
+	case "down", "j":
+		if m.networkCursor < len(m.networkList)-1 {
+			m.networkCursor++
+		}
+	}
+	
+	return m, nil
+}
+
 func (m model) View() string {
 	if m.err != nil {
 		return fmt.Sprintf("Error: %v\nPress q to quit.", m.err)
@@ -271,9 +324,28 @@ func (m model) View() string {
 	case stateTable:
 		return m.renderTable()
 	case stateCommand:
-		return m.renderTable() + m.renderCommandLine()
+	    table := m.renderTable()
+	    cmdLine := m.renderCommandLine()
+	    // Replace the last line of table content with command line
+	    lines := strings.Split(table, "\n")
+	    if len(lines) > 0 {
+		lines[len(lines)-1] = cmdLine
+		return strings.Join(lines, "\n")
+	    }
+	    return table + "\n" + cmdLine
+
 	case stateSearch:
-		return m.renderTable() + m.renderSearchLine()
+	    table := m.renderTable()
+	    searchLine := m.renderSearchLine()
+	    // Same approach
+	    lines := strings.Split(table, "\n")
+	    if len(lines) > 0 {
+		lines[len(lines)-1] = searchLine
+		return strings.Join(lines, "\n")
+	    }
+	    return table + "\n" + searchLine
+	case stateNetworkSelect:
+		return m.renderNetworkSelect()
 	}
 
 	return ""
@@ -311,11 +383,23 @@ func (m model) renderLoading() string {
 }
 
 func (m model) renderTable() string {
-	headerStyle := lipgloss.NewStyle().
+	// Header styles
+	headerBoxStyle := lipgloss.NewStyle().
 		Background(lipgloss.Color("62")).
 		Foreground(lipgloss.Color("230")).
 		Bold(true).
-		Padding(0, 1)
+		Border(lipgloss.DoubleBorder()).
+		BorderForeground(lipgloss.Color("39")).
+		Padding(0, 1).
+		Width(m.width - 2)
+
+	commandStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("255")).
+		Bold(true)
+
+	networkStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("208")).
+		Bold(true)
 
 	titleStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("86")).
@@ -328,33 +412,51 @@ func (m model) renderTable() string {
 	normalStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("252"))
 
-	// Header
-	header := headerStyle.Render("r:Refresh  /:Search  :Command") + 
-		strings.Repeat(" ", max(0, m.width-50)) + 
-		titleStyle.Render(m.logoLine)
+	// Build header content with right-aligned logo
+	commands := commandStyle.Render("r:Refresh | n:Network | /:Search | :Command")
+	networkStatus := networkStyle.Render(fmt.Sprintf("🌐 Network: %s | 🧱 Gateway: %s", 
+	    strings.ToUpper(m.currentNetwork), 
+	    m.currentGateway))
+
+	// Right-align the logo
+	logoWidth := len(m.logoLine)
+	padding := m.width - logoWidth - 4 // Account for border padding
+	if padding < 0 {
+	    padding = 0
+	}
+	logo := strings.Repeat(" ", padding) + titleStyle.Render(m.logoLine)
+
+	headerContent := fmt.Sprintf("%s\n%s\n%s", commands, networkStatus, logo)
+	header := headerBoxStyle.Render(headerContent)
+
+	// Calculate available height for table (reserve 8 lines for header)
+	availableHeight := m.height - 8
+	if availableHeight < 5 {
+		availableHeight = 5
+	}
 
 	// Table header
-	tableHeader := fmt.Sprintf("%-20s %-15s %-20s %-20s", 
-		"App Address", "Stake (POKT)", "Service ID", "Gateway")
+	tableHeader := fmt.Sprintf("%-45s %-15s %-20s %-20s", 
+		"📫 App Address", "🪙 Stake (POKT)", "⚡ Service ID", "🧱 Gateway")
 
 	var rows []string
 	rows = append(rows, tableHeader)
-	rows = append(rows, strings.Repeat("-", m.width-2))
+	rows = append(rows, strings.Repeat("=", m.width-2))
 
-	// Table rows
-	gateway := ""
-	if m.config != nil {
-		if mainNetwork, exists := m.config.Config.Networks["main"]; exists && len(mainNetwork.Gateways) > 0 {
-			gateway = TruncateAddress(mainNetwork.Gateways[0], 20)
-		}
+	// Table rows (limit to available height)
+	displayRows := availableHeight - 2 // Reserve space for header and separator
+	startRow := 0
+	if m.cursor >= displayRows {
+		startRow = m.cursor - displayRows + 1
 	}
 
-	for i, app := range m.applications {
-		row := fmt.Sprintf("%-20s %-15s %-20s %-20s",
-			TruncateAddress(app.Address, 20),
+	for i := startRow; i < len(m.applications) && i < startRow+displayRows; i++ {
+		app := m.applications[i]
+		row := fmt.Sprintf("%-45s %-15s %-20s %-20s",
+			app.Address, // Full address, no truncation
 			fmt.Sprintf("%.2f", app.StakePOKT),
 			app.ServiceID,
-			gateway)
+			TruncateAddress(m.currentGateway, 20))
 
 		if i == m.cursor {
 			row = selectedStyle.Render(row)
@@ -367,7 +469,7 @@ func (m model) renderTable() string {
 	content := strings.Join(rows, "\n")
 	
 	if m.loading {
-		content += "\n\nRefreshing..."
+		content += "\n\nRefreshing 🔁"
 	}
 
 	return header + "\n" + content
@@ -377,18 +479,82 @@ func (m model) renderCommandLine() string {
 	style := lipgloss.NewStyle().
 		Background(lipgloss.Color("235")).
 		Foreground(lipgloss.Color("255")).
-		Width(m.width)
+		Border(lipgloss.ThickBorder()).
+		BorderForeground(lipgloss.Color("39")).
+		Width(m.width - 4).
+		Padding(0, 1)
 
-	return "\n" + style.Render(":"+m.commandInput)
+	return style.Render(":"+m.commandInput)
 }
 
 func (m model) renderSearchLine() string {
 	style := lipgloss.NewStyle().
 		Background(lipgloss.Color("235")).
 		Foreground(lipgloss.Color("255")).
-		Width(m.width)
+		Border(lipgloss.ThickBorder()).
+		BorderForeground(lipgloss.Color("214")).
+		Width(m.width - 4).
+		Padding(0, 1)
 
-	return "\n" + style.Render("/"+m.searchInput)
+	return style.Render("/"+m.searchInput)
+}
+
+func (m model) renderNetworkSelect() string {
+	headerStyle := lipgloss.NewStyle().
+		Background(lipgloss.Color("62")).
+		Foreground(lipgloss.Color("230")).
+		Bold(true).
+		Padding(0, 1)
+
+	titleStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("86")).
+		Bold(true).
+		Align(lipgloss.Center)
+
+	selectedStyle := lipgloss.NewStyle().
+		Background(lipgloss.Color("240")).
+		Foreground(lipgloss.Color("255")).
+		Bold(true)
+
+	normalStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("252"))
+
+	// Header
+	header := headerStyle.Render("Select Network (Enter to switch, Esc to cancel)")
+
+	// Title
+	title := titleStyle.Width(m.width).Render("Available Networks")
+
+	var rows []string
+	rows = append(rows, "")
+	rows = append(rows, title)
+	rows = append(rows, "")
+
+	// Network list
+	for i, network := range m.networkList {
+		indicator := "  "
+		if network == m.currentNetwork {
+			indicator = "* "
+		}
+		
+		row := indicator + strings.ToUpper(network)
+		
+		if m.config != nil {
+			if net, exists := m.config.Config.Networks[network]; exists {
+				row += fmt.Sprintf(" (%s)", TruncateAddress(net.RPCEndpoint, 30))
+			}
+		}
+
+		if i == m.networkCursor {
+			row = selectedStyle.Render(row)
+		} else {
+			row = normalStyle.Render(row)
+		}
+		rows = append(rows, row)
+	}
+
+	content := strings.Join(rows, "\n")
+	return header + "\n" + content
 }
 
 func max(a, b int) int {

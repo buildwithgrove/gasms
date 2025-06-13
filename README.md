@@ -51,13 +51,12 @@
 The **G**rove **A**ppStakes **M**anagement **S**ystem or **GASMS** is a **TUI** (**T**erminal **U**ser **I**nterface) tool designed to help Gateways on [Pocket Network](https://pocket.network) manage the staking balances of applications required to send traffic. 
 
 ## Features
-
-**Real-time Application Monitoring**: Track stakes, service IDs, and gateway assignments
-**`vi`-style Keybindings**: Familiar navigation for terminal power users
-**Multi-network Support**: Configure multiple networks (beta, main, etc.)
-**Fast & Lightweight**: Single binary with no dependencies
-**Search & Filter**: Find applications quickly with / search
-**Automatic Refresh**: Keep data current with `r` refresh
+- **Real-time Application Monitoring**: Track stakes, service IDs, and gateway assignments
+- **`vi`-style Keybindings**: Familiar navigation for terminal power users
+- **Multi-network Support**: Configure multiple networks (beta, main, etc.)
+- **Fast & Lightweight**: Single binary with no dependencies
+- **Search & Filter**: Find applications quickly with / search
+- **Automatic Refresh**: Keep data current with `r` refresh
 
 ## Installation
 ### From Source
