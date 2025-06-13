@@ -121,6 +121,7 @@ gasms
 | `q` | Quit application |
 | `r` | Refresh data |
 | `/` | Search applications |
+| `n` | Browse and Change Networks |
 | `:` | Enter command mode |
 | `↑/k` | Move cursor up |
 | `↓/j` | Move cursor down |
@@ -132,11 +133,12 @@ gasms
 In command mode (press :):
 
 `:q` or `:quit` - Quit application
+`:n` or `:network` - Browse and Change Networks (i.e. Main, Beta, etc.)
 
 ## Development
 ### Prerequisites
 - [`Go 1.24+`](https://go.dev/doc/install)
-- [Make](https://www.gnu.org/software/make/)
+- [`Make`](https://www.gnu.org/software/make/)
 - [`pocketd`](https://github.com/pokt-network/poktroll)
 
 ### Development Setup
@@ -157,9 +159,9 @@ make fmt
 make test
 ```
 ### Dependencies
-- bubbletea - Terminal UI framework
-- lipgloss - Styling and layout
-- yaml.v3 - YAML configuration parsing
+- [`bubbletea`](https://github.com/charmbracelet/bubbletea) - Terminal UI framework
+- [`lipgloss`](https://github.com/charmbracelet/lipgloss) - Styling and layout
+- `yaml.v3` - YAML configuration parsing
 
 ## Inspiration
 This tool is heavily inspired by 🐶[`k9s`](https://github.com/derailed/k9s) a TUI for managing Kubernetes clusters.
