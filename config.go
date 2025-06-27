@@ -8,8 +8,14 @@ import (
 
 type Config struct {
 	Config struct {
-		Networks map[string]Network `yaml:"networks"`
+		Thresholds Thresholds          `yaml:"thresholds"`
+		Networks   map[string]Network  `yaml:"networks"`
 	} `yaml:"config"`
+}
+
+type Thresholds struct {
+	WarningThreshold int64 `yaml:"warning_threshold"`
+	DangerThreshold  int64 `yaml:"danger_threshold"`
 }
 
 type Network struct {

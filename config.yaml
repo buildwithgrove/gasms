@@ -3,18 +3,16 @@
 # --NOTE-- All keys must exist in the keyring and be accessible without a password
 
 config:
+  # Stake threshold configuration (denominated in uPOKT)
+  # warning_threshold: Stakes above this value show green status
+  # danger_threshold: Stakes below this value show red status and red text
+  # Stakes between thresholds show yellow status
+  thresholds:
+    warning_threshold: 2000000000  # 2000 POKT in uPOKT
+    danger_threshold: 1000000000   # 1000 POKT in uPOKT
+  
   networks: 
-    beta:
-      rpc_endpoint: https://shannon-testnet-grove-rpc.beta.poktroll.com
-      gateways: 
-        - pokt1lf0kekv9zcv9v3wy4v6jx2wh7v4665s8e0sl9s
-      applications:
-        - pokt1x7pg8s6dr0l4nh8q8muu6vwnvyddk9vvg7ushh
-        - pokt1u6usxrrpjpr8gqardq0swkaqvgfvy9n86ase8h
-        - pokt1vlr22776x9p7xrftjfs7n3yxkn6zjh56k8v60w
-        - pokt19fjjq3e5pyshe5glh89qx3gpswvus2ug23v97x
-        - pokt1g4ptmz2g7pz2nun35qtjmq938x5cq0fvf6v8p8
-    main:
+    pocket:
       rpc_endpoint: https://shannon-grove-rpc.mainnet.poktroll.com
       gateways: 
         - pokt1lf0kekv9zcv9v3wy4v6jx2wh7v4665s8e0sl9s
@@ -72,3 +70,226 @@ config:
         - pokt1alpg8glk3gxvrj554sugqnt9d88gqc43hvdzff
         - pokt17m9t940fcq3gf70rldwzatax0szunck0x7srdg
         - pokt1lp90s0ra44fpmk2eqp73x6wqgvrwhc57qhwrdk
+    pocket-beta:
+      rpc_endpoint: https://shannon-testnet-grove-rpc.beta.poktroll.com
+      gateways: 
+        - pokt1lf0kekv9zcv9v3wy4v6jx2wh7v4665s8e0sl9s
+      applications:
+        - pokt1q963hduu32tvtwtfa56c06tpqfcafg6jn5hyls
+        - pokt1t6jhts95uhhjhcqec9c5aszww8yjz8f3yejf6e
+        - pokt122s7wdaplrsps2wtp3eun9gzrnua4924pajpkj
+        - pokt1evpnh3spz5m6qq4jef29me8m5sqndf6umwcmyh
+        - pokt1s78223pule0athfxx9ws8xxzmxglmtuumj50zl
+        - pokt18wjz637605gwyecx2ggx4nzlxssf7trtyk7kdg
+        - pokt17wcsjutl987nzya6z0yl0yeck2740lcrypx8sj
+        - pokt1athrgvfapkdsren7q4p5sjf9jtv4q000kj5fuk
+        - pokt1kzz5s6vdnfm25w75v663snfjcfml9guum2x0gz
+        - pokt1gwkr0hktleqspcs7f50gt5s6lyqs2g349fwq2h
+        - pokt14ntkz7mlwnyhns048k6gcnq7ndr3mlpvgyd0dx
+        - pokt1rf5z5z32t73hryftyl4dra5yyv3jvatrs7cp89
+        - pokt1n3lzeay00hltvdqhhlfn3vz3jqh38x5qcyn27j
+        - pokt1hae994ydvqgnyaryq66zvvssxqtgvh0ju3jg8p
+        - pokt1wl9tvqsheqh0q65ey6wdmkey7nth0ymkeyx2m2
+        - pokt1sr508e7n4w06xu4pwpxx3teavf6p7xp82jn6a8
+        - pokt1ufapkgsu6vxfudzc0m9a4jurdhgxr5xs73aldd
+        - pokt1vu2v7tsm9eyh977kljk5x4kz2wdp039ddj70mc
+        - pokt1we23zekw5jxhsvdlqytvjv29ve9wm6zwqwydam
+        - pokt1cueqkhz0gjzw2zp4v5793rrklm52qk7hlyvzc7
+        - pokt1jpcxq2hfq7dc43y7snpftrgx85rxkxd4q0lqg9
+        - pokt14hpxl0az7l6xlk4k57q4tsh23l5wu3ap9lrcdw
+        - pokt15js9wqmrnjckqkstgva3wxl4a00hvm07e6t0wu
+        - pokt1r2csj6dnj8l5xczka9whhcz3krr49xasx3umw0
+        - pokt1a4nxjrwk3nka08pyrghk38c3ajq27snn0plmh6
+        - pokt1rhu3nq039amzk2njsshzu7k0vsrar456zy96ch
+        - pokt1t53ac8sj95jnasdy4ta9mqgku837n5zfp2ra7z
+        - pokt1z7ysl2jrjulmh9rm650uvlq2fcz6s8ae2ss6pn
+        - pokt1ng0frw2z40497tt2eyxr8y46lte7ls6l0kpcgq
+        - pokt136xmguh40th2edcmnp0jdpzggejcct3qgwsv8p
+        - pokt1zxtfwpp5xwhmf83cmutcrrzge0frsah94mg3nd
+        - pokt1eqfpwe8v8cgl3mf0h24f9973prc2207ly25c6a
+        - pokt1m9gstf3kgs0wmncmvkn6ruhuxd6kypetyqsw2q
+        - pokt147d3kaq53rj8upy2qqfhdth544c5h604sz0tjh
+        - pokt1sxqcm3hp86kqsyvvtc0rffxk8z0ypapcnnwpk7
+        - pokt1qmwf78lxgardxtg60hshqxgeuwaqkqzwe2w9w9
+        - pokt1ursyr540d0x772zhu2pjtn40pmdquhjaymz46u
+        - pokt1vkkjydhs99yzw9p73s5lnvae0akdl8zgq6qhsc
+        - pokt1akwrqmngltp33s7r6qga3gj9eyjqvw95d723cr
+        - pokt19pj8rd0kuux4mwsg48xmu9gqgwr5clxjl7lwr9
+        - pokt1uqrvt6k6sp30rarudr4eqz0pt4479wpj46nqnc
+        - pokt1xv87lwkrt2we5y7geju3zfy83c5hmgjgz3dpmd
+        - pokt1crmd238dgsl0hsa8mpgn20rujj9ll496c5pg98
+        - pokt1gqggqmhrx2r8lnwuqtkvwshaypm5l0t474xlra
+        - pokt13q0q9axxs2vlk0ruxedgzrwgvfhsq8lk26vnwh
+        - pokt1fkn6stuvpe9hrcucdslv04a60amvc4rl90ht7n
+        - pokt1qretc8uf9uvljh07pzykl7gd9kzleatx5277av
+        - pokt1cqnsywn2uxcfy3797q6ys08k6mnrq6f6cak8eh
+        - pokt1w9su8xhh8unyd9wu0ujz9gtfn5ffkt97xm6khn
+        - pokt1xz8tkss7p4gea6dwr4jchjn4ceyfyrduruef78
+        - pokt1lf3gmlwr82u5j02vry2pzdt7k48ryey7s6qe28
+        - pokt1j4czz4egr7f4fjqteahxaf44pkq7mz4237s5p0
+        - pokt1p6cpqlyccgdnqsll367z5yvgpfpj5xg3kamysv
+        - pokt1hk0kj9mfnu6qd800drfv92ryf89l48ym2xgjjr
+        - pokt1evffctjcy63xk6sacywqz4834arvhqg4pvuq6l
+        - pokt1tngk2pv5u94ah99d6pmfxevdpze6zj95mjwun7
+        - pokt1hdfqhaxlqz93m29wnzvdr2lrt3zlctwczpy9u8
+        - pokt16r9v5plj3qeh03ypvsq9hfjfse7p8j4qccdkhz
+        - pokt1eexxhc7quvptzf8ml6k7a3xsrschw5fpy3qayv
+        - pokt1lpmsvzv3g2efr0zmrp3s30zr4cessptrds3zay
+        - pokt1v5w8ky6p66sgdcz2dkxyct5962e8v7nqx08d27
+        - pokt1f75mkllkl3wt7zqyxaxjuv8ynypuqvmxp07882
+        - pokt1hmh3xajjfczh7zed3jppgqppqzqqs4krv068ar
+        - pokt1743n2492gmm0nst0x2s856peqtztz09l3p3ws6
+        - pokt1wz5qk7vm25utuw0kmmquy7e8k092cgzyfcaqqy
+        - pokt138y2uvuv8ee7ez7cu4lz7z7zysgzwfjh7ds5f4
+        - pokt1r96yermpt3nk8sk0kh7e2qvaecxhdhj5sj20hq
+        - pokt1zy5j3xv9md73nnre0v03qf73sr7ezw4qa9tq0n
+        - pokt13k7k4f8w3mjt2kxmag06utl07lfl7vaexqq2z9
+        - pokt1n9durej9r9unv9hwvdht7wnu4qwmhe8jpt3ug4
+        - pokt18zzuc4gt47fgr052x34dw555hjfzqzqsa8xvp6
+        - pokt15aqn2tpj5z0vredssq82d9cfw0dylytwnjjp3r
+        - pokt1fgrvwp442uvylt2l5kvxdvxlfzght3srpy50ya
+        - pokt1kwfw0j2zp8ynx2fjaq6hvdunrf83uzs9cmml79
+        - pokt1du3fenekzlajv7s6g2v4zkfh7j5pcnqkkzy2um
+        - pokt1pdmpyehn4j5h00gy3znzfmsjdqrsq6tuw9gjd2
+        - pokt185v3ruxumue375hnrktugy4p09fe2zg372ac9y
+        - pokt1yfcvxxhqxldvtss4je5lzv05tu7efnunqemrya
+        - pokt1fxljlpftfl8thkqha2qjwqxnt35j38zpwnkuty
+        - pokt1854k98r8nwtug75mlydvhxwllqjtl0h00pmxf3
+        - pokt10u40cg0l9h49sz49qg9a2kh5eec856qulmrpq6
+        - pokt1gghcaq8w4hsrgtt8axc3gnae6jfj78h9nd2m8p
+        - pokt1a0h4q2jjkqgvnxaekttgveah4uzgfcr0xutz6l
+        - pokt1xaj4xrl5mfxcnmdmp6h44n00atuew45fxfu8rg
+        - pokt1cw5yfxtqv368dka4q4f2n65mxmudcjnztlq8x8
+        - pokt1fhm9sphatzvtpms506hyahux7crtyz6ud5drmf
+        - pokt1wymfjlh6407xpshjvyjceuastluwhy5adlfjw4
+        - pokt1ewpjnwpc0uxve5j8s8a7yn876x6qtnqqmwxwle
+        - pokt10vv3u86hnsfe3glx86cce0l67w027je427fhyx
+        - pokt1nedn855qgescfp5pr06xjcc8d788decyelkf2z
+        - pokt19fwhfn7ykhsvytw00rqa0hrfdtnk0funp5084q
+        - pokt1xz0n49u7k40z6w8yepnlu7pkysl099d4lyeulg
+        - pokt1e2ee5vstete75w56adnqgfc5jtxtl9398ke3vd
+        - pokt1s525ckt2ess0wztx5usxxptu9zymfmsvqz2sgy
+        - pokt1vh2csg996yujmvmnc7hes3jcnmx7le6l0v2z9k
+        - pokt1ltl2uld0tmwq9uy5av7vwlq0w3hxpdxk02vmfa
+        - pokt14v56erejqmm4g42asxql7p9a9zy5yrmss9yj0z
+        - pokt1ehl0n2uwys7axtqs7psrcy7ypyp65xqgdq2xam
+        - pokt1xvvg6dx6gexw5g77f2dkudkdgkenrvnm93q2xr
+        - pokt1xgym3pdwrz39l4zs30qrrvtfvg9pqyv850akmr
+        - pokt1rpdwycghxw5u3nc7aefvpu5wgepkhnv4cfesnr
+        - pokt1a38j2xs7t3hfd698xx9tv4fwpng5ez6emlu26q
+        - pokt1hhxvv60003pnz527svkrayalkhyaasj6xfs80j
+        - pokt1k8t5zs7kky3hjyghw4pknrynr2gm8fl3lv0tfm
+        - pokt1dm028mq6xcagst6h2mzjymd7dtqdlx7g7ucm3c
+        - pokt1tzeft487h6xdt74jrkuezfut27u3a9443c0pa3
+        - pokt16uk0gr5q80jz55skg2pnzmmjpjmwq350ha4wec
+        - pokt1ej3a3tepfjmsjnydryp3zeqz5rkh3mrf9g8n54
+        - pokt16kw44x3jv5v9apfx8m8j9zu5wz2u2z6raehske
+        - pokt1k498ns3jjw5yrrm6f703dfkuvnxpwdt93s6vtq
+        - pokt1ljwduuz5pwyzzhht0dhtu5j25378v7gl30am94
+        - pokt1hs8fhcel55l9jztlj4huj5wuzytd5d5765ctym
+        - pokt1y20lur9pm4r9psdye4qtmrhmqf54rntfjr9evt
+        - pokt1t90nxy9ldgrhlqtjn2znhf8azwtjtd7p2y8nnq
+        - pokt1pt0m9a8kke9cd3t938cf6jg33gd2rf9eq5wpqd
+        - pokt1y5h8584rtf54sz8t6zlgaln39v6f4m2fa79afd
+        - pokt1yupmcmf9s0g42ejzhx3czcffdcq4cznf8wshmj
+        - pokt1e8eg46qm50s4w4h5hs60jf6ft4ay384uwnuq5l
+        - pokt1pcl56ts8gmh8et2q0q8lva62sp5vvygy27wzl3
+        - pokt12f64s28vasax9zwkh4l2etk9vmq4czt3cttv7z
+        - pokt12j08s850q0flrvcyac93s7nra0sljqkd7ygzk9
+        - pokt1u6uqdk05u8kt5qpksufn5srr7psl0qz8jtvaeu
+        - pokt13xqk88djf0ge0razpp3es0y6pjuygugff90m50
+        - pokt19sl2awd8u9szu4r3yt6e2estwv0g943wkxpumn
+        - pokt179c7xk5da620jf8v53nux4f060qhxa64844x5z
+        - pokt1sjm700pg8vzcvu55zgqjufxeykz6nslajcq6hk
+        - pokt16dvhl69l2jxj9khlwrfpgp5995xx36evah56nv
+        - pokt1365nkvc0gmf6yd43t7m9rpkhqfg544qhvtqs4t
+        - pokt1mmgys8zmg4f9twaxu9vrj2j8zkrfqjft230ufv
+        - pokt16xgrr6vzrcxy860aavk7wqktq23tmt34xflnt5
+        - pokt185nv8pzswjkyksqnqxjcp5k7y24qagmvka84j0
+        - pokt1dpmex0wmx47h9cp9vgxdpulu9dqytwltswq634
+        - pokt1pth4eqperahwk5ngjw6vdrnfu45rqasvf97jly
+        - pokt1x7pg8s6dr0l4nh8q8muu6vwnvyddk9vvg7ushh
+        - pokt1u6usxrrpjpr8gqardq0swkaqvgfvy9n86ase8h
+        - pokt1vlr22776x9p7xrftjfs7n3yxkn6zjh56k8v60w
+        - pokt19fjjq3e5pyshe5glh89qx3gpswvus2ug23v97x
+        - pokt1g4ptmz2g7pz2nun35qtjmq938x5cq0fvf6v8p8
+        - pokt10lhsdtk3u3nu3akrkg3wkt78nxhpr6muj45e0m
+        - pokt1m0pesfsupxxty2qdelhm07us5lszauwmqxdt3c
+        - pokt1jzsgtq5nymxtuyr3lke8qxh59yczuwjz2fursh
+        - pokt10gaf80mphhnt4amrnxdd0kv9dzrr409pnyvx3x
+        - pokt1pkng7jegx7hs45cjdztc6tug3cc54vemcu37pp
+        - pokt13e30rymel7fwy0rvsacjazjsz6nfyx4jfe3emf
+        - pokt1v6fkzmczj57etecpllfs53zejyt8k3ypljjy5n
+        - pokt1yv3jx5lz5awlxhtu3c2tkp2grfqy2zk342pkh8
+        - pokt13c9k2aw3sqng5rvew56t6gyycgsw087u5yx2wz
+        - pokt16l0lse8qyg945taegr6d5gryqc0ntvly39d4z8
+        - pokt1q3hf2fsqqpyfxhn09pg0tesyz9sgjmdpwu07h2
+        - pokt148a9fum7hjql27yqg9hj7wug3ejfyrfn9rzff8
+        - pokt1c88htfdmadcdmm56h3j970p0eptfxgvmdfg0tk
+        - pokt17tev5fv8f7l8ryqfer55vvfgxzwff9n8r9hu89
+        - pokt1fa7549h4yll6tvvfwf7w9spfr3xvyevurv6e6n
+        - pokt1kyy3xhzppny2cuzd4rfjnkxssmxd7nx2fxvn85
+        - pokt1r5r6sg8n2ahu9xc89tttplj7jzyj9xsufzq5p6
+        - pokt1tj9nqv44jkygzey6lf3p2updpstc760e9ntjsm
+        - pokt1xu62fnk643cyxaqv70wrglewjkl3zf9ll4uw04
+        - pokt1xp4eld6tx0cgex0q42x5lqctle3ay6mxwrd3ze
+        - pokt15ya969hu4kn2nh84zhegp09pj9lch9an5vkc3n
+        - pokt1q7dzg7fmt5dh5hv3hlxlphzrzjxkqn2zmfpvyg
+        - pokt1nx57fpfr7d0esya8umkvm6cq5h5tqxyrpdj3es
+        - pokt1cgf49q9s7zdmnftyafrzrp3klt3rqgwlm5nm7v
+        - pokt1pc3hfkk9dh4yf862j8g86ff4lpw75fmlegfdnw
+        - pokt1rsxu0tjxm46ujh6leq63hzvystyshjhtkl770m
+        - pokt1c5uhsakx7r0drkwejx2wvhr09az4e6r3gttj54
+        - pokt153sl7jhvtasd6lydram3m9hhzjsr4c3dnrxgcy
+        - pokt13echngye3d658zr2dkxtmfgkw7kjlq7xv7dcp8
+        - pokt1zvz56l2d8g2mnf89u93y6gpz7e0de2cufp5wu9
+        - pokt1s53flqegqg40x0a54ajy5axu7g5f3puytj99a2
+        - pokt1cxry7czh74a8eh4lhg9eregu8vyfesrydu2u7a
+        - pokt18nyccecmz6n7fh2fzrz2gaxp3m2ncsjmx2fzdz
+        - pokt17pnndg2dedvkyan0hg5d6l50qzp7e7w7mz6ree
+        - pokt1rdf5znkec5fjsj547e275ff5rzs7h04vrfx6k6
+        - pokt15lcg7uexlqadtnmf60fs5zke93gfs8dpurjwk3
+        - pokt1gh0n6ld8fxluq4ac4atle5e6gazet4ajqyry0s
+        - pokt1a6q4ddxdcj3zqfcl2vapxe66mq30mwwp5750gq
+        - pokt1297358wcclvvgtermfshc4fut7y4c2dapezu5a
+        - pokt1948q5qe4ntjrecjszmacrf0axhe8ndxf7j3xa8
+        - pokt1rlhwdu47ele70tr4rau8rw743d9evrnr0qxqv8
+        - pokt1n5ze3mwww2r45we2nyqh3mkxtkaekn736pdphw
+        - pokt1ecgawxq2dws9hfyh98v05q2p9530zhy96dc6e5
+        - pokt1lqux3rjetty0ra6nzfwqj7fqevpkjul6vsa6rh
+        - pokt13wdgvf4ne6e7ff682s3f3py9vxwlxk24f0n0t2
+        - pokt1pa7vguwqrjul5lm4ppa2j8ap6pphz47agn0xaa
+        - pokt1glzlfwf8y4a24qycmgcq0qjr3ejtq0u0k9pllq
+        - pokt1mmxym7w93xvtzs2408h850l42vk8as9xqjt4wu
+        - pokt1v63fn5gm8dgxd9e0wyhqztud9rdm7ks04sja8y
+        - pokt1fw2tttm65fmpm66rve0a8kr8gjxpeszhd7kfsy
+        - pokt1wlpujvs4t8f39mtzhpyzgnwfy2tatrh3zseptf
+        - pokt1wzttndqcfumdr5frxzklyg9jvsgpen9zva6079
+        - pokt1w3zpsrqp8yh60yyspktut68yv89c8ncqt6auld
+        - pokt1k4qpgqp54lcml7nn24lvnq8rwvt29t6kxrrxt0
+        - pokt1wm05ly52sel88afklcl500vkdw9leshxnc7jhx
+        - pokt153a9jpr8qql2lt5g39z7pzy9fxcmyap2aqkq9n
+        - pokt1qxqh8q05ta8un47n2sat7pcwzsxffkmxa3wjf2
+        - pokt15q6enpk09jj0mkry8vakwlen0r3y2f9x7qeqq2
+        - pokt1apjxdu548x0sprjw5s4tw2pxjdel9jyrm6mmff
+        - pokt1z9dm8t6tu0dwrq8twf0emp9v7sr86nnf22vqgc
+        - pokt1hr3vxl0rpjgj2d0uea7fc7d9utzpnrlvf5uq53
+        - pokt1w88d9xj9nt4mz8ugk8aec8ar8j2x06f9vr4kqv
+        - pokt1ey6pspvcrxpe3g3hdyytvs2gzpd2g3v0krra9g
+        - pokt1knsh06q0w2mjufj4c38sdpztaaq9m0du7sz9jr
+        - pokt1cvtswak08kmq8actyvr6shkdt52fz6g6u3s4n3
+        - pokt16588clzdyqhjduuuhj06zae9fex5jfqw5t4rzq
+        - pokt14rgq2k0h0p8vqnpezx06nka5acw0znu7gzj6wv
+        - pokt12ke92p0ttjd5e4ysdv5ttpkxct6t9sws3vv6j0
+        - pokt1j305s39v6kuw3hv7gr223gxq50ldgsevm6nyh3
+        - pokt1u4wmkgtcmrygdhq5372mxn7myn6t6dq3mj6y0u
+        - pokt12x060tk2wm0ve5hul6a6steky5ulm7hlm96sv7
+        - pokt1w3t7wrndqynkrz4eh3caeh2zfty0jmqqm84z09
+        - pokt1kz6rwvjrsknrjlqv2w64uh8rdyvcjdztu6c9cm
+        - pokt1cjr97vzlu6huagl5s59vsrzpnkc4rn2de69dhl
+        - pokt1vey0k90uc62msvs0hlnc6ml4v9jdlnu7cuz8ur
+        - pokt1zuuqfp8uxsrrv305hjg5v7qu5x4pvghwarzsfw
+        - pokt1esngy9w9qx9ulhzkplwvjklu2trzdfegckau64
+        - pokt1xqzj70qd9s54vmdzj5wk2euln6jrjqnf7zl0t4
+        - pokt1el8z8gjpxf4jtm0qnqq38d92hk8tq8mu68mwyy
+        - pokt1q5luhnxfhzaqlt7lt24u2cyntp38jpya7hxml4
