@@ -166,6 +166,55 @@ make test
 ## Inspiration
 This tool is heavily inspired by 🐶[`k9s`](https://github.com/derailed/k9s) a TUI for managing Kubernetes clusters.
 
+## Scripts
+
+The `scripts/` directory contains utility scripts for common Pocket Network operations:
+
+### `stake-applications`
+Automates the process of staking or restaking applications on the Pocket Network.
+
+**Features:**
+- Incrementally increases stake amounts for existing applications
+- Handles new application staking with initial amounts
+- Supports single application or batch processing
+- Dry-run mode for testing commands before execution
+- Multi-network support (mainnet/beta)
+
+**Usage:**
+```bash
+./scripts/stake-applications --network main --home ~/.poktroll --restake-amount 5000000000 -f app-svc-map.txt
+```
+
+**Input File Format:** Tab-separated file with application addresses and service IDs:
+```
+pokt165uqhq43j7xqjnlv53kzsfjn55kecpg4ejyfns	ethereum-mainnet
+pokt1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0	polygon-mainnet
+```
+
+### `fund-accounts`
+Generates multi-send commands to fund multiple accounts in a single transaction.
+
+**Features:**
+- Creates efficient batch funding transactions
+- Atomic operation (all transfers succeed or fail together)
+- Calculates total amounts and fees
+- Supports both mainnet and beta networks
+- Saves generated commands for easy execution
+
+**Usage:**
+```bash
+./scripts/fund-accounts sender_key addresses.txt 5005000000upokt main ~/.poktroll/
+```
+
+**Input File Format:** Simple text file with one address per line:
+```
+pokt165uqhq43j7xqjnlv53kzsfjn55kecpg4ejyfns
+pokt1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0
+pokt198765432109876543210987654321098765432
+```
+
+Both scripts include comprehensive help documentation accessible with the `-h` or `--help` flag.
+
 ## Helper Functions
 ### Helper Function to get current stakes:
 `pkd_mainnet_query application list-application -o json | jq '.applications[]   | select(.delegatee_gateway_addresses[] == "pokt1lf0kekv9zcv9v3wy4v6jx2wh7v4665s8e0sl9s")   | {address, stake_amount: .stake.amount, service_id: .service_configs[].service_id}'`

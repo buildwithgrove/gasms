@@ -57,6 +57,23 @@ Network Options:
     --network main          Use mainnet (https://shannon-grove-rpc.mainnet.poktroll.com, chain-id: pocket)
     --network beta          Use beta testnet (https://shannon-testnet-grove-rpc.beta.poktroll.com, chain-id: pocket-beta)
 
+Input File Format:
+    The app-service mapping file should contain tab-separated values with one line per application:
+    
+    Format: <APPLICATION_ADDRESS><TAB><SERVICE_ID>
+    
+    Example file content:
+        pokt165uqhq43j7xqjnlv53kzsfjn55kecpg4ejyfns	ethereum-mainnet
+        pokt1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0	polygon-mainnet
+        pokt198765432109876543210987654321098765432	arbitrum-mainnet
+    
+    Notes:
+    • Each line must contain exactly one application address and one service ID
+    • Fields must be separated by a single tab character (not spaces)
+    • Empty lines are ignored
+    • Application addresses must be valid Pocket Network addresses
+    • Service IDs must match configured service identifiers
+
 Examples:
     $0 --network main --home /home/ft/.poktroll --restake-amount 5000000000 -f app-svc-map.txt
     $0 -f my-apps.txt --network beta --home /home/ft/.poktroll --restake-amount 5000000000 --dry-run

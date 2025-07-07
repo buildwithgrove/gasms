@@ -9,11 +9,34 @@ set -e
 # Check arguments
 if [ $# -ne 5 ]; then
     echo "Usage: $0 <SENDER> <ADDR_FILE> <AMOUNT> <NETWORK> <HOME>"
+    echo
+    echo "Arguments:"
     echo "  SENDER: Sender address or key name"
     echo "  ADDR_FILE: Path to file containing addresses"
     echo "  AMOUNT: Amount to send (e.g., 5005000000upokt)"
     echo "  NETWORK: 'main' or 'beta'"
     echo "  HOME: Home directory path (e.g., /home/user/.poktroll/)"
+    echo
+    echo "Input File Format:"
+    echo "  The address file should contain one address per line with no additional formatting:"
+    echo
+    echo "  Format: <ADDRESS>"
+    echo
+    echo "  Example file content:"
+    echo "      pokt165uqhq43j7xqjnlv53kzsfjn55kecpg4ejyfns"
+    echo "      pokt1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0"
+    echo "      pokt198765432109876543210987654321098765432"
+    echo
+    echo "  Notes:"
+    echo "  • Each line must contain exactly one address"
+    echo "  • No tabs, spaces, or other characters (addresses only)"
+    echo "  • Empty lines are ignored"
+    echo "  • Addresses must be valid Pocket Network addresses"
+    echo "  • All addresses will receive the same amount specified"
+    echo
+    echo "Example:"
+    echo "  $0 sender_key addresses.txt 5005000000upokt main /home/user/.poktroll/"
+    echo
     exit 1
 fi
 
