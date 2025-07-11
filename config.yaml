@@ -16,6 +16,7 @@ config:
       rpc_endpoint: https://shannon-grove-rpc.mainnet.poktroll.com
       gateways: 
         - pokt1lf0kekv9zcv9v3wy4v6jx2wh7v4665s8e0sl9s
+      bank: pokt1la0mzur79w7vgk2stun4llqlgaqa2f3rg20jvj
       applications:
         - pokt1mah7e8zyqs0p60qvwdydc7kaej5sm3sjs7um0a
         - pokt165uqhq43j7xqjnlv53kzsfjn55kecpg4ejyfns
@@ -74,6 +75,7 @@ config:
       rpc_endpoint: https://shannon-testnet-grove-rpc.beta.poktroll.com
       gateways: 
         - pokt1lf0kekv9zcv9v3wy4v6jx2wh7v4665s8e0sl9s
+      bank: pokt1la0mzur79w7vgk2stun4llqlgaqa2f3rg20jvj
       applications:
         - pokt1q963hduu32tvtwtfa56c06tpqfcafg6jn5hyls
         - pokt1t6jhts95uhhjhcqec9c5aszww8yjz8f3yejf6e

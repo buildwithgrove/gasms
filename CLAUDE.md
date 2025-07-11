@@ -79,12 +79,14 @@ config:
   networks:
     main:
       rpc_endpoint: "http://your-rpc-endpoint"
+      bank: "bank_wallet_address_for_fees_and_stake"
       gateways:
         - "gateway_address_1"
       applications:
         - "app1"
     beta:
       rpc_endpoint: "http://beta-rpc-endpoint"
+      bank: "bank_wallet_address_for_fees_and_stake"
       gateways:
         - "gateway_address_2"
       applications:
@@ -97,7 +99,9 @@ config:
 - Real-time application data fetching via `pocketd` CLI
 - Vi-style keyboard navigation
 - Search functionality across addresses and service IDs
+- Upstake functionality - increase application stakes using hotkey `u` or `:u` command
 - Automatic stake amount conversion from raw values to POKT
+- Centralized wallet management - all fees and stakes paid from configured bank address
 - Responsive terminal interface with proper window sizing
 
 ## Development Notes

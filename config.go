@@ -8,8 +8,8 @@ import (
 
 type Config struct {
 	Config struct {
-		Thresholds Thresholds          `yaml:"thresholds"`
-		Networks   map[string]Network  `yaml:"networks"`
+		Thresholds Thresholds         `yaml:"thresholds"`
+		Networks   map[string]Network `yaml:"networks"`
 	} `yaml:"config"`
 }
 
@@ -22,6 +22,7 @@ type Network struct {
 	RPCEndpoint  string   `yaml:"rpc_endpoint"`
 	Gateways     []string `yaml:"gateways"`
 	Applications []string `yaml:"applications"`
+	Bank         string   `yaml:"bank"`
 }
 
 func LoadConfig(path string) (*Config, error) {

@@ -17,9 +17,9 @@ type Application struct {
 func QueryApplications(rpcEndpoint, gateway string) ([]Application, error) {
 	// Build the command equivalent to:
 	// pocketd q application list-application -o json $MAINNODE | jq '.applications[] | select(.delegatee_gateway_addresses[] == "gateway") | {address, stake_amount: .stake.amount, service_id: .service_configs[].service_id}'
-	
+
 	cmd := exec.Command("pocketd", "q", "application", "list-application", "-o", "json", "--node", rpcEndpoint)
-	
+
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute pocketd command: %w", err)
@@ -28,11 +28,11 @@ func QueryApplications(rpcEndpoint, gateway string) ([]Application, error) {
 	// Parse the JSON output
 	var response struct {
 		Applications []struct {
-			Address                   string `json:"address"`
-			Stake                    struct {
+			Address string `json:"address"`
+			Stake   struct {
 				Amount string `json:"amount"`
 			} `json:"stake"`
-			ServiceConfigs           []struct {
+			ServiceConfigs []struct {
 				ServiceID string `json:"service_id"`
 			} `json:"service_configs"`
 			DelegateeGatewayAddresses []string `json:"delegatee_gateway_addresses"`
@@ -45,7 +45,7 @@ func QueryApplications(rpcEndpoint, gateway string) ([]Application, error) {
 	}
 
 	var applications []Application
-	
+
 	for _, app := range response.Applications {
 		// Check if this app has our gateway
 		hasGateway := false
@@ -55,7 +55,7 @@ func QueryApplications(rpcEndpoint, gateway string) ([]Application, error) {
 				break
 			}
 		}
-		
+
 		if !hasGateway {
 			continue
 		}
