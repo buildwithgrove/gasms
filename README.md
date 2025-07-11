@@ -52,11 +52,13 @@ The **G**rove **A**ppStakes **M**anagement **S**ystem or **GASMS** is a **TUI** 
 
 ## Features
 - **Real-time Application Monitoring**: Track stakes, service IDs, and gateway assignments
+- **Application Management**: Upstake, fund, and view detailed information for applications
 - **`vi`-style Keybindings**: Familiar navigation for terminal power users
 - **Multi-network Support**: Configure multiple networks (beta, main, etc.)
 - **Fast & Lightweight**: Single binary with no dependencies
 - **Search & Filter**: Find applications quickly with / search
 - **Automatic Refresh**: Keep data current with `r` refresh
+- **Transaction Tracking**: View transaction hashes for upstake and fund operations
 
 ## Installation
 ### From Source
@@ -89,18 +91,25 @@ make build-all
 Create a `config.yaml` file in your working directory:
 ```yaml
 config:
+  # Stake threshold configuration (denominated in uPOKT)
+  thresholds:
+    warning_threshold: 2000000000  # 2000 POKT in uPOKT
+    danger_threshold: 1000000000   # 1000 POKT in uPOKT
+  
   networks: 
-    beta:
+    pocket:
       rpc_endpoint: <NETWORK_RPC_URL>
       gateways: 
         - <GATEWAY_ADDRESS>
+      bank: <BANK_ADDRESS>  # Required for upstake and fund operations
       applications:
         - application1
         # ... more applications
-    main:
+    pocket-beta:
       rpc_endpoint: <NETWORK_RPC_URL>
       gateways: 
         - <GATEWAY_ADDRESS>
+      bank: <BANK_ADDRESS>  # Required for upstake and fund operations
       applications:
         - application1
         # ... more applications
@@ -108,6 +117,9 @@ config:
 
 ## Usage
 ```bash
+# Run from repo
+make run
+
 # Run GASMS
 ./gasms
 
@@ -123,17 +135,31 @@ gasms
 | `/` | Search applications |
 | `n` | Browse and Change Networks |
 | `:` | Enter command mode |
+| `u` | Upstake selected application |
+| `f` | Fund selected application |
+| `Enter` | Show application details |
 | `↑/k` | Move cursor up |
 | `↓/j` | Move cursor down |
 | `g` | Go to top |
 | `G` | Go to bottom |
-| `Esc` | Cancel command/search |
+| `Esc` | Cancel command/search or return to table view |
 
 ### Commands
 In command mode (press :):
 
+#### General Commands
 `:q` or `:quit` - Quit application
-`:n` or `:network` - Browse and Change Networks (i.e. Main, Beta, etc.)
+`:n` or `:network` - Browse and Change Networks (i.e. pocket, pocket-beta, etc.)
+`:show` - Show detailed information for selected application
+
+#### Application Management
+`:u <amount>` or `:upstake <amount>` - Increase stake of selected application by amount (in POKT)
+  - Example: `:u 1000` adds 1000 POKT to current stake
+  - Displays transaction hash for 10 seconds after completion
+  
+`:f <amount>` or `:fund <amount>` - Send tokens to selected application (in POKT)
+  - Example: `:f 500` sends 500 POKT to the application
+  - Displays transaction hash for 10 seconds after completion
 
 ## Development
 ### Prerequisites
