@@ -62,6 +62,7 @@ The **G**rove **A**ppStakes **M**anagement **S**ystem or **GASMS** is a **TUI** 
 
 ## Video Guide
 [![GASMS Demo](https://img.youtube.com/vi/p_h-Ui6uls8/0.jpg)](https://www.youtube.com/watch?v=p_h-Ui6uls8)
+
 *Click to watch a demonstration of GASMS features and functionality*
 
 ## Installation
