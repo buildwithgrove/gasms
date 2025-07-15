@@ -40,3 +40,9 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Ignore config
+config.yaml
+
+# Ignore .bak files
+*.bak

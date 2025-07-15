@@ -1,0 +1,29 @@
+# config.yaml
+# Contains configuration for GASMS
+# --NOTE-- All keys must exist in the keyring and be accessible without a password
+
+config:
+  # Stake threshold configuration (denominated in uPOKT)
+  # warning_threshold: Stakes above this value show green status
+  # danger_threshold: Stakes below this value show red status and red text
+  # Stakes between thresholds show yellow status
+  thresholds:
+    warning_threshold: 2000000000  # 2000 POKT in uPOKT
+    danger_threshold: 1000000000   # 1000 POKT in uPOKT
+  # GASMS Supports Multiple Networks. Each Network must be a valid cosmos chain-id
+  networks: 
+    # Chain ID for Pocket Mainnet
+    pocket:
+      # Specify an endpoint. Must be on the Cosmos SDK Endpoint :26657
+      rpc_endpoint: https://shannon-grove-rpc.mainnet.poktroll.com
+      # Specify up to N gateways that the applications are attached to
+      gateways: 
+        - pokt1234567...
+      # The bank address is where the :fund command gets its $POKT. 
+      # Needed to fund and upstake applications
+      bank: pokt1la0mzur79w7vgk2stun4llqlgaqa2f3rg20jvj
+      # List up to N applications used for your gateway here
+      applications:
+        - pokt1app1...
+        - pokt1app2...
+        - pokt1app3...
