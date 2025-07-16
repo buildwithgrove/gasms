@@ -10,6 +10,17 @@ config:
   thresholds:
     warning_threshold: 2000000000  # 2000 POKT in uPOKT
     danger_threshold: 1000000000   # 1000 POKT in uPOKT
+  # Keyring Backend. DEFAULT=os
+  keyring-backend: 
+  # Denomination. DEFAULT=upokt
+  # Options: [ upokt , pokt ]
+  denomination: upokt
+  # Set the Default Sort Algo. DEFAULT=service
+  # Options: [ service , stake , status , address ]
+  default-sort-algo: service
+  # Set Default sort order. DEFAULT= asc
+  # Options: [ asc , desc ]
+  default-sort-order: asc
   # GASMS Supports Multiple Networks. Each Network must be a valid cosmos chain-id
   networks: 
     # Chain ID for Pocket Mainnet
