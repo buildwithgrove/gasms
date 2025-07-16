@@ -12,6 +12,7 @@ type Application struct {
 	StakeAmount string  `json:"stake_amount"`
 	ServiceID   string  `json:"service_id"`
 	StakePOKT   float64 // Calculated field for display
+	BalancePOKT float64 // Bank balance in POKT
 }
 
 func QueryApplications(rpcEndpoint, gateway string) ([]Application, error) {
@@ -73,15 +74,60 @@ func QueryApplications(rpcEndpoint, gateway string) ([]Application, error) {
 		}
 		stakePOKT := stakeAmount / 1_000_000
 
+		// Query bank balance for this application
+		balancePOKT, err := QueryBankBalance(app.Address, rpcEndpoint)
+		if err != nil {
+			// If balance query fails, set to 0 and continue
+			balancePOKT = 0
+		}
+
 		applications = append(applications, Application{
 			Address:     app.Address,
 			StakeAmount: app.Stake.Amount,
 			ServiceID:   serviceID,
 			StakePOKT:   stakePOKT,
+			BalancePOKT: balancePOKT,
 		})
 	}
 
 	return applications, nil
+}
+
+func QueryBankBalance(address, rpcEndpoint string) (float64, error) {
+	cmd := exec.Command("pocketd", "q", "bank", "balances", address, "--node", rpcEndpoint, "--output", "json")
+
+	output, err := cmd.Output()
+	if err != nil {
+		return 0, fmt.Errorf("failed to execute pocketd balance query: %w", err)
+	}
+
+	// Parse the JSON output
+	var response struct {
+		Balances []struct {
+			Amount string `json:"amount"`
+			Denom  string `json:"denom"`
+		} `json:"balances"`
+	}
+
+	err = json.Unmarshal(output, &response)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse JSON response: %w", err)
+	}
+
+	// Find upokt balance
+	for _, balance := range response.Balances {
+		if balance.Denom == "upokt" {
+			amount, err := strconv.ParseFloat(balance.Amount, 64)
+			if err != nil {
+				return 0, fmt.Errorf("failed to parse balance amount: %w", err)
+			}
+			// Convert from upokt to POKT (divide by 1,000,000)
+			return amount / 1_000_000, nil
+		}
+	}
+
+	// No upokt balance found
+	return 0, nil
 }
 
 func TruncateAddress(address string, maxLen int) string {

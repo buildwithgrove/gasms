@@ -28,6 +28,7 @@ const (
 	stateGatewaySelect
 	stateHelp
 	stateApplicationDetails
+	stateUpstakeAllReceipts
 )
 
 type model struct {
@@ -57,16 +58,23 @@ type model struct {
 	txTimestamp    time.Time // When the upstake transaction was submitted
 	fundTxHash     string    // Current fund transaction hash to display
 	fundTimestamp  time.Time // When the fund transaction was submitted
+	txError        string    // Current transaction error to display
+	txErrorHash    string    // Hash of the failed transaction
+	bankBalance    float64   // Current bank balance in POKT
 	// Application details view
 	selectedAppAddress string // Address of currently viewed application
 	applicationDetails string // Raw output from show-application command
 	bankBalances       string // Raw output from bank balances command
 	detailsLoading     bool   // Loading state for details view
+	// Upstake all receipts view
+	upstakeAllReceipts []UpstakeReceipt // List of transaction receipts from upstake all
+	processingUpstakeAll bool // Flag to indicate we're processing upstake all
 }
 
 type applicationsLoadedMsg struct {
-	apps []Application
-	err  error
+	apps        []Application
+	bankBalance float64
+	err         error
 }
 
 type configLoadedMsg struct {
@@ -89,6 +97,21 @@ type fundCompletedMsg struct {
 	txHash string
 }
 
+type transactionErrorMsg struct {
+	txHash string
+	error  string
+}
+
+type UpstakeReceipt struct {
+	appAddress string
+	txHash     string
+	error      string
+}
+
+type upstakeAllCompletedMsg struct {
+	receipts []UpstakeReceipt
+}
+
 func loadSplashArt() string {
 	content, err := ioutil.ReadFile("art/splash.txt")
 	if err != nil {
@@ -109,10 +132,21 @@ func loadLogoLine() string {
 	return "GASMS"
 }
 
-func loadApplicationsCmd(rpcEndpoint, gateway string) tea.Cmd {
+func loadApplicationsCmd(rpcEndpoint, gateway, bankAddress string) tea.Cmd {
 	return func() tea.Msg {
 		apps, err := QueryApplications(rpcEndpoint, gateway)
-		return applicationsLoadedMsg{apps: apps, err: err}
+		if err != nil {
+			return applicationsLoadedMsg{apps: apps, bankBalance: 0, err: err}
+		}
+
+		// Query bank balance
+		bankBalance, bankErr := QueryBankBalance(bankAddress, rpcEndpoint)
+		if bankErr != nil {
+			// If bank balance query fails, continue with apps but set balance to 0
+			bankBalance = 0
+		}
+
+		return applicationsLoadedMsg{apps: apps, bankBalance: bankBalance, err: err}
 	}
 }
 
@@ -170,7 +204,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.currentNetwork = m.networkList[0]
 		if firstNetwork, exists := m.config.Config.Networks[m.currentNetwork]; exists && len(firstNetwork.Gateways) > 0 {
 			m.currentGateway = firstNetwork.Gateways[0]
-			return m, loadApplicationsCmd(firstNetwork.RPCEndpoint, firstNetwork.Gateways[0])
+			return m, loadApplicationsCmd(firstNetwork.RPCEndpoint, firstNetwork.Gateways[0], firstNetwork.Bank)
 		}
 		m.err = fmt.Errorf("first network %s has no gateways configured", m.currentNetwork)
 		return m, nil
@@ -181,6 +215,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.applications = msg.apps
+		m.bankBalance = msg.bankBalance
 		m.sortApplications() // Sort applications after loading
 		m.loading = false    // clear loading state
 
@@ -192,6 +227,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.txHash = ""
 		} else if msg == "clear_fund_hash" {
 			m.fundTxHash = ""
+		} else if msg == "clear_tx_error" {
+			m.txError = ""
+			m.txErrorHash = ""
+		} else if msg == "switch_to_receipts" {
+			m.state = stateUpstakeAllReceipts
+			m.loading = false
+			m.processingUpstakeAll = false
 		} else if strings.HasPrefix(msg, "Upstake failed:") {
 			m.err = fmt.Errorf("%s", msg)
 		} else if strings.HasPrefix(msg, "Fund failed:") {
@@ -208,7 +250,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if network, exists := m.config.Config.Networks[m.currentNetwork]; exists && len(network.Gateways) > 0 {
 				m.loading = true
 				return m, tea.Batch(
-					loadApplicationsCmd(network.RPCEndpoint, m.currentGateway),
+					loadApplicationsCmd(network.RPCEndpoint, m.currentGateway, network.Bank),
 					tea.Tick(time.Second*10, func(t time.Time) tea.Msg {
 						return "clear_tx_hash"
 					}),
@@ -225,6 +267,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Tick(time.Second*10, func(t time.Time) tea.Msg {
 			return "clear_fund_hash"
 		})
+
+	case transactionErrorMsg:
+		// Set transaction error and hash for display
+		m.txError = msg.error
+		m.txErrorHash = msg.txHash
+
+		// Set timer to clear error after 15 seconds
+		return m, tea.Tick(time.Second*15, func(t time.Time) tea.Msg {
+			return "clear_tx_error"
+		})
+
+	case upstakeAllCompletedMsg:
+		// Store receipts and switch to receipts view
+		m.upstakeAllReceipts = msg.receipts
+		m.state = stateUpstakeAllReceipts
 
 	case applicationDetailsLoadedMsg:
 		m.detailsLoading = false
@@ -262,6 +319,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case stateApplicationDetails:
 			return m.updateApplicationDetails(msg)
+		case stateUpstakeAllReceipts:
+			return m.updateUpstakeAllReceipts(msg)
 		}
 	}
 
@@ -289,7 +348,7 @@ func (m model) updateTable(msg tea.KeyMsg) (model, tea.Cmd) {
 		if m.config != nil {
 			if network, exists := m.config.Config.Networks[m.currentNetwork]; exists && len(network.Gateways) > 0 {
 				m.loading = true
-				return m, loadApplicationsCmd(network.RPCEndpoint, network.Gateways[0])
+				return m, loadApplicationsCmd(network.RPCEndpoint, network.Gateways[0], network.Bank)
 			}
 		}
 
@@ -328,6 +387,14 @@ func (m model) updateTable(msg tea.KeyMsg) (model, tea.Cmd) {
 			m.state = stateCommand
 			m.commandInput = "f " + currentApp.Address + " "
 		}
+	case "F":
+		m.state = stateCommand
+		m.commandInput = "fa "
+	case "U":
+		m.state = stateCommand
+		m.commandInput = "ua "
+	case "h":
+		m.state = stateHelp
 	}
 
 	return m, nil
@@ -364,6 +431,8 @@ func (m model) updateCommand(msg tea.KeyMsg) (model, tea.Cmd) {
 			m.setSortBy("address")
 		case "sp", "sort stake":
 			m.setSortBy("stake")
+		case "sb", "sort balance":
+			m.setSortBy("balance")
 		case "sv", "sort service":
 			m.setSortBy("service")
 		// Sort direction commands
@@ -387,6 +456,14 @@ func (m model) updateCommand(msg tea.KeyMsg) (model, tea.Cmd) {
 			// Handle fund command: "f <address> <amount>" or "fund <address> <amount>"
 			if strings.HasPrefix(cmd, "f ") || strings.HasPrefix(cmd, "fund ") {
 				return m.handleFundCommand(cmd)
+			}
+			// Handle fund all command: "fa <amount>" or "fund-all <amount>"
+			if strings.HasPrefix(cmd, "fa ") || strings.HasPrefix(cmd, "fund-all ") {
+				return m.handleFundAllCommand(cmd)
+			}
+			// Handle upstake all command: "ua <amount>" or "upstake-all <amount>"
+			if strings.HasPrefix(cmd, "ua ") || strings.HasPrefix(cmd, "upstake-all ") {
+				return m.handleUpstakeAllCommand(cmd)
 			}
 		}
 
@@ -463,7 +540,7 @@ func (m model) updateNetworkSelect(msg tea.KeyMsg) (model, tea.Cmd) {
 				m.currentGateway = network.Gateways[0]
 				m.state = stateTable
 				m.loading = true
-				return m, loadApplicationsCmd(network.RPCEndpoint, network.Gateways[0])
+				return m, loadApplicationsCmd(network.RPCEndpoint, network.Gateways[0], network.Bank)
 			}
 		}
 		m.state = stateTable
@@ -495,7 +572,7 @@ func (m model) updateGatewaySelect(msg tea.KeyMsg) (model, tea.Cmd) {
 					m.currentGateway = selectedGateway
 					m.state = stateTable
 					m.loading = true
-					return m, loadApplicationsCmd(network.RPCEndpoint, selectedGateway)
+					return m, loadApplicationsCmd(network.RPCEndpoint, selectedGateway, network.Bank)
 				}
 			}
 		}
@@ -555,6 +632,8 @@ func (m model) View() string {
 		mainContent = m.renderHelp()
 	case stateApplicationDetails:
 		mainContent = m.renderApplicationDetails()
+	case stateUpstakeAllReceipts:
+		mainContent = m.renderUpstakeAllReceipts()
 	default:
 		mainContent = ""
 	}
@@ -738,16 +817,16 @@ func (m model) renderHeader() string {
 
 	// Column 1: App State
 	appCount := len(m.applications)
-	stateContent := fmt.Sprintf("🌐 Network: %s\n🧱 Gateway: %s\n📱 Applications: %d",
-		strings.ToUpper(m.currentNetwork), m.currentGateway, appCount)
+	stateContent := fmt.Sprintf("🌐 Network: %s\n🧱 Gateway: %s\n📱 Applications: %d\n🏦 Bank Balance: %.2f POKT",
+		strings.ToUpper(m.currentNetwork), m.currentGateway, appCount, m.bankBalance)
 	stateColumn := stateStyle.Render(stateContent)
 
 	// Column 2: Commands (clean columns)
-	commandContent := "Navigation:           Sort Columns:        Actions:\n"
-	commandContent += "r: Refresh           :ss Status           :: Command\n"
-	commandContent += "n: Network           :sa Address          h: Help\n"
-	commandContent += "g: Gateway           :sp Stake            u: Upstake\n"
-	commandContent += "/: Search            :sv Service          q: Quit"
+	commandContent := "Navigation:           Sort Columns:                  Actions:\n"
+	commandContent += "r: Refresh            :ss Status     :sv Service     :: Command    /: Search\n"
+	commandContent += "n: Network            :sa Address                    f: Fund       F: Fund All\n"
+	commandContent += "g: Gateway            :sp Stake                      u: Upstake    U: Upstake All\n"
+	commandContent += "h: Help               :sb Balance                    q: Quit\n"
 	commandColumn := commandStyle.Render(commandContent)
 
 	// Join 2 columns horizontally
@@ -777,21 +856,25 @@ func (m model) renderTableContent() string {
 		availableHeight = 10 // Minimum usable table height
 	}
 
-	// Optimized column widths - prioritize service_id readability
+	// Improved column widths - better distribution across screen
 	statusWidth := 10
-	stakeWidth := 12   // Reduced from 15 (fits "99999.99" comfortably)
-	serviceWidth := 25 // Increased from 20 (never truncate service IDs)
-	gatewayWidth := 20
-	// Remaining width for address column (account for borders and padding)
-	addressWidth := m.width - statusWidth - stakeWidth - serviceWidth - gatewayWidth - 8
-	if addressWidth < 20 {
-		addressWidth = 20 // Minimum width for readability
+	stakeWidth := 20   // Increased for better spacing
+	balanceWidth := 20 // Increased for better spacing
+	serviceWidth := 28 // Increased for better service ID readability
+	gatewayWidth := 20 // Increased for better spacing
+	// Calculate remaining width for address column with better spacing
+	usedWidth := statusWidth + stakeWidth + balanceWidth + serviceWidth + gatewayWidth
+	spacing := 20 // Account for column separators and padding
+	addressWidth := m.width - usedWidth - spacing
+	if addressWidth < 25 {
+		addressWidth = 25 // Minimum width for readability
 	}
 
-	tableHeader := fmt.Sprintf("%-*s %-*s %-*s %-*s %-*s",
-		statusWidth, m.getColumnHeader("ℹ️  STATUS", "status"),
+	tableHeader := fmt.Sprintf("%-*s %-*s %-*s %-*s %-*s %-*s",
+		statusWidth, m.getColumnHeader("ℹ️  Status", "status"),
 		addressWidth, m.getColumnHeader("📫 App Address", "address"),
 		stakeWidth, m.getColumnHeader("🪙 Stake (POKT)", "stake"),
+		balanceWidth, m.getColumnHeader("💰 Balance (POKT)", "balance"),
 		serviceWidth, m.getColumnHeader("⚡ Service ID", "service"),
 		gatewayWidth, m.getColumnHeader("🧱 Gateway", "gateway"))
 
@@ -826,10 +909,11 @@ func (m model) renderTableContent() string {
 		status, rowStyle := m.getStakeStatus(app, selectedStyle, normalStyle, i == m.cursor)
 
 		// Use dynamic widths for consistent formatting
-		row := fmt.Sprintf("%-*s %-*s %-*s %-*s %-*s",
+		row := fmt.Sprintf("%-*s %-*s %-*s %-*s %-*s %-*s",
 			statusWidth, status,
 			addressWidth, TruncateAddress(app.Address, addressWidth-2),
 			stakeWidth, fmt.Sprintf("%.2f", app.StakePOKT),
+			balanceWidth, fmt.Sprintf("%.2f", app.BalancePOKT),
 			serviceWidth, app.ServiceID, // Never truncate service ID
 			gatewayWidth, TruncateAddress(m.currentGateway, gatewayWidth-2))
 
@@ -846,7 +930,13 @@ func (m model) renderTableContent() string {
 			Bold(true).
 			Align(lipgloss.Center).
 			Width(m.width)
-		loadingMsg := loadingStyle.Render("🔄 REFRESHING DATA...")
+		var loadingText string
+		if m.processingUpstakeAll {
+			loadingText = "🔄 PROCESSING UPSTAKE TRANSACTIONS..."
+		} else {
+			loadingText = "🔄 REFRESHING DATA..."
+		}
+		loadingMsg := loadingStyle.Render(loadingText)
 		tableContent += "\n" + loadingMsg
 	}
 
@@ -857,7 +947,11 @@ func (m model) renderTableContent() string {
 			Bold(true).
 			Align(lipgloss.Center).
 			Width(m.width)
-		txMsg := txStyle.Render("💸 UPSTAKE TXHASH: " + m.txHash)
+		poktscanURL := "https://www.poktscan.com/tx/" + m.txHash
+		baseMsg := txStyle.Render("💸 UPSTAKE TXHASH: " + m.txHash)
+		// Apply hyperlink after styling to prevent interference
+		clickableHash := createClickableLink(poktscanURL, m.txHash)
+		txMsg := strings.Replace(baseMsg, m.txHash, clickableHash, 1)
 		tableContent += "\n" + txMsg
 	}
 
@@ -868,8 +962,27 @@ func (m model) renderTableContent() string {
 			Bold(true).
 			Align(lipgloss.Center).
 			Width(m.width)
-		fundMsg := fundStyle.Render("💸 FUND TXHASH: " + m.fundTxHash)
+		poktscanURL := "https://www.poktscan.com/tx/" + m.fundTxHash
+		baseMsg := fundStyle.Render("💸 FUND TXHASH: " + m.fundTxHash)
+		// Apply hyperlink after styling to prevent interference
+		clickableHash := createClickableLink(poktscanURL, m.fundTxHash)
+		fundMsg := strings.Replace(baseMsg, m.fundTxHash, clickableHash, 1)
 		tableContent += "\n" + fundMsg
+	}
+
+	// Add transaction error display if available
+	if m.txError != "" {
+		errorStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("196")). // Bright red
+			Bold(true).
+			Align(lipgloss.Center).
+			Width(m.width)
+		poktscanURL := "https://www.poktscan.com/tx/" + m.txErrorHash
+		baseMsg := errorStyle.Render("❌ TXHASH: " + m.txErrorHash + ". ERROR: " + m.txError)
+		// Apply hyperlink after styling to prevent interference
+		clickableHash := createClickableLink(poktscanURL, m.txErrorHash)
+		errorMsg := strings.Replace(baseMsg, m.txErrorHash, clickableHash, 1)
+		tableContent += "\n" + errorMsg
 	}
 
 	return tableContent
@@ -945,6 +1058,9 @@ func (m *model) sortApplications() {
 			stakeI, _ := strconv.ParseInt(m.applications[i].StakeAmount, 10, 64)
 			stakeJ, _ := strconv.ParseInt(m.applications[j].StakeAmount, 10, 64)
 			result = stakeI > stakeJ // Default: highest stakes first
+		case "balance":
+			// Sort by balance amount
+			result = m.applications[i].BalancePOKT > m.applications[j].BalancePOKT // Default: highest balances first
 		case "service":
 			result = m.applications[i].ServiceID < m.applications[j].ServiceID
 		case "gateway":
@@ -1139,13 +1255,15 @@ func (m model) renderHelp() string {
 		BorderForeground(lipgloss.Color("65")).
 		Width(m.width - 4)
 
-	helpContent := `GASMS - Grove AppStakes Management System
+	helpContent := `GASMS - Grove🌿 AppStakes Management System
 
 NAVIGATION:
   ↑/k, ↓/j        Navigate up/down
   g, G            Go to top/bottom
   u               Upstake selected application (add to current stake)
   f               Fund selected application
+  F               Fund all applications (opens :fa prompt)
+  U               Upstake all applications (opens :ua prompt)
   enter           Show application details
   
 COMMANDS (prefix with :):
@@ -1155,12 +1273,15 @@ COMMANDS (prefix with :):
   g, gateway      Switch gateway
   u <addr> <amt>  Upstake application (add amount to current stake)
   f <addr> <amt>  Fund application (send tokens)
+  fa <amount>     Fund all applications (each app receives <amount> tokens)
+  ua <amount>     Upstake all applications (each app gets <amount> added to stake)
   show <addr>     Show application details
   
 SORTING:
   ss, sort status    Sort by stake status (high to low)
   sa, sort address   Sort by address (A-Z)
   sp, sort stake     Sort by stake amount (high to low)
+  sb, sort balance   Sort by balance amount (high to low)
   sv, sort service   Sort by service ID (A-Z)
   sg, sort gateway   Sort by gateway
   
@@ -1226,6 +1347,15 @@ func (m model) executeUpstake(address, serviceID string, amount int64) tea.Cmd {
 	return func() tea.Msg {
 		txHash, err := upstakeApplication(address, serviceID, amount, m.config, m.currentNetwork)
 		if err != nil {
+			// Check if this is a transaction error with hash
+			if strings.Contains(err.Error(), "transaction failed with hash") {
+				parts := strings.Split(err.Error(), ": ")
+				if len(parts) >= 2 {
+					hashPart := strings.TrimPrefix(parts[0], "transaction failed with hash ")
+					errorPart := strings.Join(parts[1:], ": ")
+					return transactionErrorMsg{txHash: hashPart, error: errorPart}
+				}
+			}
 			return fmt.Sprintf("Upstake failed: %v", err)
 		}
 		return upstakeCompletedMsg{txHash: txHash}
@@ -1305,12 +1435,49 @@ address: %s
 		return "", fmt.Errorf("pocketd command failed: %v, output: %s", err, string(output))
 	}
 
-	// Parse transaction hash from output
+	// Parse transaction hash and check for errors
 	outputStr := string(output)
-	txHash := ""
+	txHash, rawLog, err := parsePocketdOutput(outputStr)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse pocketd output: %v", err)
+	}
 
-	// Look for txhash in the output (pocketd outputs in various formats)
-	lines := strings.Split(outputStr, "\n")
+	// Check if there's an error in raw_log
+	if rawLog != "" && (strings.Contains(rawLog, "failed") || strings.Contains(rawLog, "error") || strings.Contains(rawLog, "insufficient") || strings.Contains(rawLog, "out of gas")) {
+		return "", fmt.Errorf("transaction failed with hash %s: %s", txHash, rawLog)
+	}
+
+	return txHash, nil
+}
+
+func isHexString(s string) bool {
+	for _, c := range s {
+		if !((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f')) {
+			return false
+		}
+	}
+	return true
+}
+
+func parsePocketdOutput(output string) (txHash string, rawLog string, err error) {
+	// Try to parse as JSON first
+	var jsonResp map[string]interface{}
+	if err := json.Unmarshal([]byte(output), &jsonResp); err == nil {
+		// Extract txhash
+		if hash, ok := jsonResp["txhash"].(string); ok {
+			txHash = hash
+		}
+
+		// Extract raw_log for error checking
+		if log, ok := jsonResp["raw_log"].(string); ok {
+			rawLog = log
+		}
+
+		return txHash, rawLog, nil
+	}
+
+	// Fallback to text parsing
+	lines := strings.Split(output, "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		// Handle formats: "txhash: ABC123", "txhash:ABC123", or just "ABC123" on its own
@@ -1325,16 +1492,14 @@ address: %s
 		}
 	}
 
-	return txHash, nil
+	return txHash, "", nil
 }
 
-func isHexString(s string) bool {
-	for _, c := range s {
-		if !((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f')) {
-			return false
-		}
-	}
-	return true
+func createClickableLink(url, displayText string) string {
+	// OSC 8 hyperlink format: \x1b]8;;URL\x1b\\DISPLAYTEXT\x1b]8;;\x1b\\
+	// This creates a clickable link in terminals that support OSC 8
+	// Important: The hyperlink MUST be properly terminated to prevent bleeding
+	return fmt.Sprintf("\x1b]8;;%s\x1b\\%s\x1b]8;;\x1b\\", url, displayText)
 }
 
 func getCurrentStake(address, rpcEndpoint, networkName string) (int64, error) {
@@ -1622,10 +1787,159 @@ func (m model) executeFund(address string, amount int64) tea.Cmd {
 	return func() tea.Msg {
 		txHash, err := fundApplication(address, amount, m.config, m.currentNetwork)
 		if err != nil {
+			// Check if this is a transaction error with hash
+			if strings.Contains(err.Error(), "transaction failed with hash") {
+				parts := strings.Split(err.Error(), ": ")
+				if len(parts) >= 2 {
+					hashPart := strings.TrimPrefix(parts[0], "transaction failed with hash ")
+					errorPart := strings.Join(parts[1:], ": ")
+					return transactionErrorMsg{txHash: hashPart, error: errorPart}
+				}
+			}
 			return fmt.Sprintf("Fund failed: %v", err)
 		}
 		return fundCompletedMsg{txHash: txHash}
 	}
+}
+
+func (m model) updateUpstakeAllReceipts(msg tea.KeyMsg) (model, tea.Cmd) {
+	switch msg.String() {
+	case "esc", "q":
+		m.state = stateTable
+	}
+	return m, nil
+}
+
+func (m model) renderUpstakeAllReceipts() string {
+	headerStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("150")). // Light grey-green
+		Bold(true).
+		Border(lipgloss.DoubleBorder()).
+		BorderForeground(lipgloss.Color("65")). // Muted green for border
+		Padding(0, 1).
+		Width(m.width - 4)
+
+	receiptStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("108")). // Soft grey-green
+		Padding(0, 2)
+
+	errorStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("196")). // Red for errors
+		Padding(0, 2)
+
+	successStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("120")). // Green for success
+		Padding(0, 2)
+
+	title := headerStyle.Render("📜 UPSTAKE ALL RECEIPTS 📜")
+	
+	var content []string
+	content = append(content, title)
+	content = append(content, "")
+
+	if len(m.upstakeAllReceipts) == 0 {
+		loadingStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("220")). // Bold yellow
+			Bold(true)
+		content = append(content, loadingStyle.Render("🔄 PROCESSING UPSTAKE TRANSACTIONS..."))
+		content = append(content, receiptStyle.Render("Please wait while we upstake all applications."))
+	} else {
+		for i, receipt := range m.upstakeAllReceipts {
+			var line string
+			if receipt.error != "" {
+				line = fmt.Sprintf("%d. %s - ERROR: %s", 
+					i+1, 
+					TruncateAddress(receipt.appAddress, 42), 
+					receipt.error)
+				content = append(content, errorStyle.Render(line))
+			} else {
+				clickableHash := createClickableLink("https://www.poktscan.com/tx/"+receipt.txHash, receipt.txHash)
+				line = fmt.Sprintf("%d. %s - TX: %s", 
+					i+1, 
+					TruncateAddress(receipt.appAddress, 42), 
+					clickableHash)
+				content = append(content, successStyle.Render(line))
+			}
+		}
+	}
+
+	content = append(content, "")
+	content = append(content, receiptStyle.Render("Press ESC or Q to return to main view"))
+
+	return strings.Join(content, "\n")
+}
+
+func (m model) handleUpstakeAllCommand(cmd string) (model, tea.Cmd) {
+	parts := strings.Fields(cmd)
+	if len(parts) < 2 {
+		m.err = fmt.Errorf("usage: ua <amount> or upstake-all <amount> (each app gets <amount> added to current stake)")
+		return m, nil
+	}
+
+	amountStr := parts[1]
+
+	// Validate amount is numeric
+	amount, err := strconv.ParseInt(amountStr, 10, 64)
+	if err != nil || amount <= 0 {
+		m.err = fmt.Errorf("amount must be a positive integer: %s", amountStr)
+		return m, nil
+	}
+
+	// Show processing message first, then execute upstake all
+	m.loading = true // This will show the processing message in main view
+	m.processingUpstakeAll = true // Flag to show upstake processing message
+	m.upstakeAllReceipts = []UpstakeReceipt{} // Clear previous receipts
+	return m, tea.Batch(
+		tea.Tick(time.Millisecond*500, func(t time.Time) tea.Msg {
+			return "switch_to_receipts"
+		}),
+		m.executeUpstakeAll(amount),
+	)
+}
+
+func (m model) executeUpstakeAll(amount int64) tea.Cmd {
+	return func() tea.Msg {
+		receipts := upstakeAllApplications(amount, m.config, m.currentNetwork, m.applications)
+		return upstakeAllCompletedMsg{receipts: receipts}
+	}
+}
+
+func upstakeAllApplications(amount int64, config *Config, networkName string, applications []Application) []UpstakeReceipt {
+	var receipts []UpstakeReceipt
+	
+	// Get the configured applications list for the current network
+	network, exists := config.Config.Networks[networkName]
+	if !exists {
+		return receipts // Return empty if network not found
+	}
+	
+	// Create a map of configured application addresses for fast lookup
+	configuredApps := make(map[string]bool)
+	for _, addr := range network.Applications {
+		configuredApps[addr] = true
+	}
+	
+	// Only process applications that are in the config
+	for _, app := range applications {
+		if !configuredApps[app.Address] {
+			continue // Skip applications not in config
+		}
+		
+		txHash, err := upstakeApplication(app.Address, app.ServiceID, amount, config, networkName)
+		receipt := UpstakeReceipt{
+			appAddress: app.Address,
+		}
+		
+		if err != nil {
+			receipt.error = err.Error()
+		} else {
+			receipt.txHash = txHash
+		}
+		
+		receipts = append(receipts, receipt)
+	}
+	
+	return receipts
 }
 
 func fundApplication(address string, amount int64, config *Config, networkName string) (string, error) {
@@ -1673,24 +1987,138 @@ func fundApplication(address string, amount int64, config *Config, networkName s
 		return "", fmt.Errorf("pocketd command failed: %v, output: %s", err, string(output))
 	}
 
-	// Parse transaction hash from output
+	// Parse transaction hash and check for errors
 	outputStr := string(output)
-	txHash := ""
+	txHash, rawLog, err := parsePocketdOutput(outputStr)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse pocketd output: %v", err)
+	}
 
-	// Look for txhash in the output (pocketd outputs in various formats)
-	lines := strings.Split(outputStr, "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		// Handle formats: "txhash: ABC123", "txhash:ABC123", or just "ABC123" on its own
-		if strings.HasPrefix(strings.ToLower(line), "txhash:") {
-			txHash = strings.TrimSpace(strings.TrimPrefix(line, "txhash:"))
-			txHash = strings.TrimSpace(strings.TrimPrefix(txHash, " "))
-			break
-		} else if len(line) == 64 && isHexString(line) {
-			// Likely a 64-character hex hash
-			txHash = line
-			break
+	// Check if there's an error in raw_log
+	if rawLog != "" && (strings.Contains(rawLog, "failed") || strings.Contains(rawLog, "error") || strings.Contains(rawLog, "insufficient") || strings.Contains(rawLog, "out of gas")) {
+		return "", fmt.Errorf("transaction failed with hash %s: %s", txHash, rawLog)
+	}
+
+	return txHash, nil
+}
+
+func (m model) handleFundAllCommand(cmd string) (model, tea.Cmd) {
+	parts := strings.Fields(cmd)
+	if len(parts) < 2 {
+		m.err = fmt.Errorf("usage: fa <amount> or fund-all <amount> (each app receives <amount> tokens)")
+		return m, nil
+	}
+
+	amountStr := parts[1]
+
+	// Validate amount is numeric
+	amount, err := strconv.ParseInt(amountStr, 10, 64)
+	if err != nil || amount <= 0 {
+		m.err = fmt.Errorf("amount must be a positive integer: %s", amountStr)
+		return m, nil
+	}
+
+	// Execute fund all in background
+	return m, m.executeFundAll(amount)
+}
+
+func (m model) executeFundAll(amount int64) tea.Cmd {
+	return func() tea.Msg {
+		txHash, err := fundAllApplications(amount, m.config, m.currentNetwork)
+		if err != nil {
+			// Check if this is a transaction error with hash
+			if strings.Contains(err.Error(), "transaction failed with hash") {
+				parts := strings.Split(err.Error(), ": ")
+				if len(parts) >= 2 {
+					hashPart := strings.TrimPrefix(parts[0], "transaction failed with hash ")
+					errorPart := strings.Join(parts[1:], ": ")
+					return transactionErrorMsg{txHash: hashPart, error: errorPart}
+				}
+			}
+			return fmt.Sprintf("Fund failed: %v", err)
 		}
+		return fundCompletedMsg{txHash: txHash}
+	}
+}
+
+func fundAllApplications(amount int64, config *Config, networkName string) (string, error) {
+	if config == nil {
+		return "", fmt.Errorf("config not loaded")
+	}
+
+	network, exists := config.Config.Networks[networkName]
+	if !exists {
+		return "", fmt.Errorf("network not found: %s", networkName)
+	}
+
+	// Validate bank address is configured
+	if network.Bank == "" {
+		return "", fmt.Errorf("bank address not configured for network: %s", networkName)
+	}
+
+	// Check if there are any applications to fund
+	if len(network.Applications) == 0 {
+		return "", fmt.Errorf("no applications configured for network: %s", networkName)
+	}
+
+	// Determine chain ID and node based on network
+	var chainID, node string
+	switch networkName {
+	case "pocket":
+		chainID = "pocket"
+		node = "https://shannon-grove-rpc.mainnet.poktroll.com"
+	case "pocket-beta":
+		chainID = "pocket-beta"
+		node = "https://shannon-testnet-grove-rpc.beta.poktroll.com"
+	default:
+		return "", fmt.Errorf("unsupported network: %s", networkName)
+	}
+
+	// Build the multi-send command arguments
+	// Format: pocketd tx bank multi-send [from_key_or_address] [to_address_1 to_address_2 ...] [amount] [flags]
+	args := []string{"tx", "bank", "multi-send", network.Bank}
+
+	// Add all application addresses from config as recipients
+	for _, appAddress := range network.Applications {
+		args = append(args, appAddress)
+	}
+
+	// Calculate total amount: amount per app * number of apps
+	// This ensures each app receives the specified amount when using --split
+	totalAmount := amount * int64(len(network.Applications))
+	amountWithDenom := fmt.Sprintf("%dupokt", totalAmount)
+	args = append(args, amountWithDenom)
+
+	// Add remaining flags
+	args = append(args,
+		"--node="+node,
+		"--chain-id="+chainID,
+		"--split",
+		"--yes",
+		"--gas=auto",
+		"--gas-prices=1upokt",
+		"--gas-adjustment=2.5",
+		"--home="+os.Getenv("HOME")+"/.pocket",
+	)
+
+	// Execute pocketd multi-send command
+	cmd := exec.Command("pocketd", args...)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("pocketd command failed: %v, output: %s, command: %s", err, string(output), strings.Join(cmd.Args, " "))
+	}
+
+	// Parse transaction hash and check for errors
+	outputStr := string(output)
+	txHash, rawLog, err := parsePocketdOutput(outputStr)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse pocketd output: %v", err)
+	}
+
+	// Check if there's an error in raw_log
+	if rawLog != "" && (strings.Contains(rawLog, "failed") || strings.Contains(rawLog, "error") || strings.Contains(rawLog, "insufficient") || strings.Contains(rawLog, "out of gas")) {
+		return "", fmt.Errorf("transaction failed with hash %s: %s", txHash, rawLog)
 	}
 
 	return txHash, nil
