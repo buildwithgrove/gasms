@@ -18,8 +18,9 @@ type Application struct {
 func QueryApplications(rpcEndpoint, gateway string) ([]Application, error) {
 	// Build the command equivalent to:
 	// pocketd q application list-application -o json $MAINNODE | jq '.applications[] | select(.delegatee_gateway_addresses[] == "gateway") | {address, stake_amount: .stake.amount, service_id: .service_configs[].service_id}'
+	// Use --limit 10000 to ensure we get all applications (pagination workaround)
 
-	cmd := exec.Command("pocketd", "q", "application", "list-application", "-o", "json", "--node", rpcEndpoint)
+	cmd := exec.Command("pocketd", "q", "application", "list-application", "-o", "json", "--node", rpcEndpoint, "--limit", "10000")
 
 	output, err := cmd.Output()
 	if err != nil {

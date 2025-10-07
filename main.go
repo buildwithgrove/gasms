@@ -348,7 +348,7 @@ func (m model) updateTable(msg tea.KeyMsg) (model, tea.Cmd) {
 		if m.config != nil {
 			if network, exists := m.config.Config.Networks[m.currentNetwork]; exists && len(network.Gateways) > 0 {
 				m.loading = true
-				return m, loadApplicationsCmd(network.RPCEndpoint, network.Gateways[0], network.Bank)
+				return m, loadApplicationsCmd(network.RPCEndpoint, m.currentGateway, network.Bank)
 			}
 		}
 
@@ -947,11 +947,7 @@ func (m model) renderTableContent() string {
 			Bold(true).
 			Align(lipgloss.Center).
 			Width(m.width)
-		poktscanURL := "https://www.poktscan.com/tx/" + m.txHash
-		baseMsg := txStyle.Render("💸 UPSTAKE TXHASH: " + m.txHash)
-		// Apply hyperlink after styling to prevent interference
-		clickableHash := createClickableLink(poktscanURL, m.txHash)
-		txMsg := strings.Replace(baseMsg, m.txHash, clickableHash, 1)
+		txMsg := txStyle.Render("💸 UPSTAKE TXHASH: " + m.txHash)
 		tableContent += "\n" + txMsg
 	}
 
@@ -962,11 +958,7 @@ func (m model) renderTableContent() string {
 			Bold(true).
 			Align(lipgloss.Center).
 			Width(m.width)
-		poktscanURL := "https://www.poktscan.com/tx/" + m.fundTxHash
-		baseMsg := fundStyle.Render("💸 FUND TXHASH: " + m.fundTxHash)
-		// Apply hyperlink after styling to prevent interference
-		clickableHash := createClickableLink(poktscanURL, m.fundTxHash)
-		fundMsg := strings.Replace(baseMsg, m.fundTxHash, clickableHash, 1)
+		fundMsg := fundStyle.Render("💸 FUND TXHASH: " + m.fundTxHash)
 		tableContent += "\n" + fundMsg
 	}
 
@@ -977,11 +969,7 @@ func (m model) renderTableContent() string {
 			Bold(true).
 			Align(lipgloss.Center).
 			Width(m.width)
-		poktscanURL := "https://www.poktscan.com/tx/" + m.txErrorHash
-		baseMsg := errorStyle.Render("❌ TXHASH: " + m.txErrorHash + ". ERROR: " + m.txError)
-		// Apply hyperlink after styling to prevent interference
-		clickableHash := createClickableLink(poktscanURL, m.txErrorHash)
-		errorMsg := strings.Replace(baseMsg, m.txErrorHash, clickableHash, 1)
+		errorMsg := errorStyle.Render("❌ TXHASH: " + m.txErrorHash + ". ERROR: " + m.txError)
 		tableContent += "\n" + errorMsg
 	}
 
@@ -1847,17 +1835,16 @@ func (m model) renderUpstakeAllReceipts() string {
 		for i, receipt := range m.upstakeAllReceipts {
 			var line string
 			if receipt.error != "" {
-				line = fmt.Sprintf("%d. %s - ERROR: %s", 
-					i+1, 
-					TruncateAddress(receipt.appAddress, 42), 
+				line = fmt.Sprintf("%d. %s - ERROR: %s",
+					i+1,
+					TruncateAddress(receipt.appAddress, 42),
 					receipt.error)
 				content = append(content, errorStyle.Render(line))
 			} else {
-				clickableHash := createClickableLink("https://www.poktscan.com/tx/"+receipt.txHash, receipt.txHash)
-				line = fmt.Sprintf("%d. %s - TX: %s", 
-					i+1, 
-					TruncateAddress(receipt.appAddress, 42), 
-					clickableHash)
+				line = fmt.Sprintf("%d. %s - TX: %s",
+					i+1,
+					TruncateAddress(receipt.appAddress, 42),
+					receipt.txHash)
 				content = append(content, successStyle.Render(line))
 			}
 		}
