@@ -46,3 +46,6 @@ config.yaml
 
 # Ignore .bak files
 *.bak
+
+# Ignore address and mapping files (contain operational data)
+files/*.txt

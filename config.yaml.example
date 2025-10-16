@@ -30,9 +30,9 @@ config:
       # Specify up to N gateways that the applications are attached to
       gateways: 
         - pokt1234567...
-      # The bank address is where the :fund command gets its $POKT. 
+      # The bank address is where the :fund command gets its $POKT.
       # Needed to fund and upstake applications
-      bank: pokt1la0mzur79w7vgk2stun4llqlgaqa2f3rg20jvj
+      bank: pokt1EXAMPLE_REPLACE_WITH_YOUR_BANK_ADDRESS
       # List up to N applications used for your gateway here
       applications:
         - pokt1app1...
