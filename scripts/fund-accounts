@@ -15,7 +15,7 @@ if [ $# -ne 5 ]; then
     echo "  ADDR_FILE: Path to file containing addresses"
     echo "  AMOUNT: Amount to send (e.g., 5005000000upokt)"
     echo "  NETWORK: 'main' or 'beta'"
-    echo "  HOME: Home directory path (e.g., /home/user/.poktroll/)"
+    echo "  HOME: Home directory path (e.g., /home/user/.pocket/)"
     echo
     echo "Input File Format:"
     echo "  The address file should contain one address per line with no additional formatting:"
@@ -35,7 +35,7 @@ if [ $# -ne 5 ]; then
     echo "  • All addresses will receive the same amount specified"
     echo
     echo "Example:"
-    echo "  $0 sender_key addresses.txt 5005000000upokt main /home/user/.poktroll/"
+    echo "  $0 sender_key addresses.txt 5005000000upokt main /home/user/.pocket/"
     echo
     exit 1
 fi

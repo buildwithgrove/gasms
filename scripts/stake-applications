@@ -75,12 +75,12 @@ Input File Format:
     • Service IDs must match configured service identifiers
 
 Examples:
-    $0 --network main --home /home/ft/.poktroll --restake-amount 5000000000 -f app-svc-map.txt
-    $0 -f my-apps.txt --network beta --home /home/ft/.poktroll --restake-amount 5000000000 --dry-run
-    $0 --single pokt165uqhq43j7xqjnlv53kzsfjn55kecpg4ejyfns --network main --home /home/ft/.poktroll --restake-amount 5000000000 -f app-svc-map.txt
-    $0 --home /custom/path/.poktroll/ --network main --restake-amount 5000000000 -f app-svc-map.txt
-    $0 --fees 300000upokt --restake-amount 1000000000 --network beta --home /home/ft/.poktroll -f app-svc-map.txt
-    $0 --temp-dir /custom/tmp --network main --home /home/ft/.poktroll --restake-amount 5000000000 -f app-svc-map.txt
+    $0 --network main --home /home/user/.pocket --restake-amount 5000000000 -f app-svc-map.txt
+    $0 -f my-apps.txt --network beta --home /home/user/.pocket --restake-amount 5000000000 --dry-run
+    $0 --single pokt165uqhq43j7xqjnlv53kzsfjn55kecpg4ejyfns --network main --home /home/user/.pocket --restake-amount 5000000000 -f app-svc-map.txt
+    $0 --home /custom/path/.pocket/ --network main --restake-amount 5000000000 -f app-svc-map.txt
+    $0 --fees 300000upokt --restake-amount 1000000000 --network beta --home /home/user/.pocket -f app-svc-map.txt
+    $0 --temp-dir /custom/tmp --network main --home /home/user/.pocket --restake-amount 5000000000 -f app-svc-map.txt
 
 EOF
 }

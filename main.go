@@ -1388,7 +1388,7 @@ service_ids:
 address: %s
 `, newStake, serviceID, address)
 
-	if err := os.WriteFile(configFile, []byte(configContent), 0644); err != nil {
+	if err := os.WriteFile(configFile, []byte(configContent), 0600); err != nil {
 		return "", fmt.Errorf("failed to create config file: %v", err)
 	}
 
