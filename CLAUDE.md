@@ -76,6 +76,12 @@ The application expects a `config.yaml` file in the working directory with this 
 
 ```yaml
 config:
+  # Optional: Configure keyring backend (defaults to pocketd's default)
+  keyring-backend: "test"  # Options: os, file, test, kwallet, pass, keychain, memory
+
+  # Optional: Configure pocketd home directory (defaults to $HOME/.pocket)
+  pocketd-home: "/custom/path/to/.pocket"
+
   networks:
     main:
       rpc_endpoint: "http://your-rpc-endpoint"

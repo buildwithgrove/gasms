@@ -10,8 +10,12 @@ config:
   thresholds:
     warning_threshold: 2000000000  # 2000 POKT in uPOKT
     danger_threshold: 1000000000   # 1000 POKT in uPOKT
-  # Keyring Backend. DEFAULT=os
-  keyring-backend: 
+  # [OPTIONAL] Keyring Backend. DEFAULT=os
+  # Options: [ os , file , test , kwallet , pass , keychain , memory ]
+  keyring-backend:
+  # [OPTIONAL] Pocketd Home Directory. DEFAULT=$HOME/.pocket
+  # Override the default home directory for pocketd commands
+  pocketd-home:
   # Denomination. DEFAULT=upokt
   # Options: [ upokt , pokt ]
   denomination: upokt

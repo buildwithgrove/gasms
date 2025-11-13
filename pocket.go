@@ -15,12 +15,14 @@ type Application struct {
 	BalancePOKT float64 // Bank balance in POKT
 }
 
-func QueryApplications(rpcEndpoint, gateway string) ([]Application, error) {
+func QueryApplications(rpcEndpoint, gateway, keyringBackend, pocketdHome string) ([]Application, error) {
 	// Build the command equivalent to:
 	// pocketd q application list-application -o json $MAINNODE | jq '.applications[] | select(.delegatee_gateway_addresses[] == "gateway") | {address, stake_amount: .stake.amount, service_id: .service_configs[].service_id}'
 	// Use --limit 10000 to ensure we get all applications (pagination workaround)
 
-	cmd := exec.Command("pocketd", "q", "application", "list-application", "-o", "json", "--node", rpcEndpoint, "--limit", "10000")
+	args := []string{"q", "application", "list-application", "-o", "json", "--node", rpcEndpoint, "--limit", "10000"}
+	args = AppendPocketdFlags(args, keyringBackend, pocketdHome)
+	cmd := exec.Command("pocketd", args...)
 
 	output, err := cmd.Output()
 	if err != nil {
@@ -76,7 +78,7 @@ func QueryApplications(rpcEndpoint, gateway string) ([]Application, error) {
 		stakePOKT := stakeAmount / 1_000_000
 
 		// Query bank balance for this application
-		balancePOKT, err := QueryBankBalance(app.Address, rpcEndpoint)
+		balancePOKT, err := QueryBankBalance(app.Address, rpcEndpoint, keyringBackend, pocketdHome)
 		if err != nil {
 			// If balance query fails, set to 0 and continue
 			balancePOKT = 0
@@ -94,8 +96,10 @@ func QueryApplications(rpcEndpoint, gateway string) ([]Application, error) {
 	return applications, nil
 }
 
-func QueryBankBalance(address, rpcEndpoint string) (float64, error) {
-	cmd := exec.Command("pocketd", "q", "bank", "balances", address, "--node", rpcEndpoint, "--output", "json")
+func QueryBankBalance(address, rpcEndpoint, keyringBackend, pocketdHome string) (float64, error) {
+	args := []string{"q", "bank", "balances", address, "--node", rpcEndpoint, "--output", "json"}
+	args = AppendPocketdFlags(args, keyringBackend, pocketdHome)
+	cmd := exec.Command("pocketd", args...)
 
 	output, err := cmd.Output()
 	if err != nil {
@@ -140,4 +144,15 @@ func TruncateAddress(address string, maxLen int) string {
 	}
 	// Show first 6 and last 4 characters with ... in between
 	return address[:6] + "..." + address[len(address)-4:]
+}
+
+// AppendPocketdFlags adds optional keyring-backend and home flags to pocketd command args
+func AppendPocketdFlags(args []string, keyringBackend, pocketdHome string) []string {
+	if keyringBackend != "" {
+		args = append(args, "--keyring-backend="+keyringBackend)
+	}
+	if pocketdHome != "" {
+		args = append(args, "--home="+pocketdHome)
+	}
+	return args
 }

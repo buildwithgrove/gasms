@@ -8,8 +8,10 @@ import (
 
 type Config struct {
 	Config struct {
-		Thresholds Thresholds         `yaml:"thresholds"`
-		Networks   map[string]Network `yaml:"networks"`
+		Thresholds     Thresholds         `yaml:"thresholds"`
+		Networks       map[string]Network `yaml:"networks"`
+		KeyringBackend string             `yaml:"keyring-backend,omitempty"`
+		PocketdHome    string             `yaml:"pocketd-home,omitempty"`
 	} `yaml:"config"`
 }
 

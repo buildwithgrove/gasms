@@ -132,15 +132,15 @@ func loadLogoLine() string {
 	return "GASMS"
 }
 
-func loadApplicationsCmd(rpcEndpoint, gateway, bankAddress string) tea.Cmd {
+func loadApplicationsCmd(rpcEndpoint, gateway, bankAddress, keyringBackend, pocketdHome string) tea.Cmd {
 	return func() tea.Msg {
-		apps, err := QueryApplications(rpcEndpoint, gateway)
+		apps, err := QueryApplications(rpcEndpoint, gateway, keyringBackend, pocketdHome)
 		if err != nil {
 			return applicationsLoadedMsg{apps: apps, bankBalance: 0, err: err}
 		}
 
 		// Query bank balance
-		bankBalance, bankErr := QueryBankBalance(bankAddress, rpcEndpoint)
+		bankBalance, bankErr := QueryBankBalance(bankAddress, rpcEndpoint, keyringBackend, pocketdHome)
 		if bankErr != nil {
 			// If bank balance query fails, continue with apps but set balance to 0
 			bankBalance = 0
@@ -204,7 +204,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.currentNetwork = m.networkList[0]
 		if firstNetwork, exists := m.config.Config.Networks[m.currentNetwork]; exists && len(firstNetwork.Gateways) > 0 {
 			m.currentGateway = firstNetwork.Gateways[0]
-			return m, loadApplicationsCmd(firstNetwork.RPCEndpoint, firstNetwork.Gateways[0], firstNetwork.Bank)
+			return m, loadApplicationsCmd(firstNetwork.RPCEndpoint, firstNetwork.Gateways[0], firstNetwork.Bank, m.config.Config.KeyringBackend, m.config.Config.PocketdHome)
 		}
 		m.err = fmt.Errorf("first network %s has no gateways configured", m.currentNetwork)
 		return m, nil
@@ -250,7 +250,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if network, exists := m.config.Config.Networks[m.currentNetwork]; exists && len(network.Gateways) > 0 {
 				m.loading = true
 				return m, tea.Batch(
-					loadApplicationsCmd(network.RPCEndpoint, m.currentGateway, network.Bank),
+					loadApplicationsCmd(network.RPCEndpoint, m.currentGateway, network.Bank, m.config.Config.KeyringBackend, m.config.Config.PocketdHome),
 					tea.Tick(time.Second*10, func(t time.Time) tea.Msg {
 						return "clear_tx_hash"
 					}),
@@ -348,7 +348,7 @@ func (m model) updateTable(msg tea.KeyMsg) (model, tea.Cmd) {
 		if m.config != nil {
 			if network, exists := m.config.Config.Networks[m.currentNetwork]; exists && len(network.Gateways) > 0 {
 				m.loading = true
-				return m, loadApplicationsCmd(network.RPCEndpoint, m.currentGateway, network.Bank)
+				return m, loadApplicationsCmd(network.RPCEndpoint, m.currentGateway, network.Bank, m.config.Config.KeyringBackend, m.config.Config.PocketdHome)
 			}
 		}
 
@@ -540,7 +540,7 @@ func (m model) updateNetworkSelect(msg tea.KeyMsg) (model, tea.Cmd) {
 				m.currentGateway = network.Gateways[0]
 				m.state = stateTable
 				m.loading = true
-				return m, loadApplicationsCmd(network.RPCEndpoint, network.Gateways[0], network.Bank)
+				return m, loadApplicationsCmd(network.RPCEndpoint, network.Gateways[0], network.Bank, m.config.Config.KeyringBackend, m.config.Config.PocketdHome)
 			}
 		}
 		m.state = stateTable
@@ -572,7 +572,7 @@ func (m model) updateGatewaySelect(msg tea.KeyMsg) (model, tea.Cmd) {
 					m.currentGateway = selectedGateway
 					m.state = stateTable
 					m.loading = true
-					return m, loadApplicationsCmd(network.RPCEndpoint, selectedGateway, network.Bank)
+					return m, loadApplicationsCmd(network.RPCEndpoint, selectedGateway, network.Bank, m.config.Config.KeyringBackend, m.config.Config.PocketdHome)
 				}
 			}
 		}
@@ -1364,7 +1364,7 @@ func upstakeApplication(address, serviceID string, amount int64, config *Config,
 	// The --from parameter uses the application address instead
 
 	// Get current stake amount
-	currentStake, err := getCurrentStake(address, network.RPCEndpoint, networkName)
+	currentStake, err := getCurrentStake(address, network.RPCEndpoint, networkName, config.Config.KeyringBackend, config.Config.PocketdHome)
 	if err != nil {
 		return "", fmt.Errorf("failed to get current stake: %v", err)
 	}
@@ -1409,14 +1409,27 @@ address: %s
 	}
 
 	// Execute pocketd command using application address for --from
-	cmd := exec.Command("pocketd", "tx", "application", "stake-application",
-		"--config="+configFile,
-		"--from="+address,
-		"--node="+node,
-		"--chain-id="+chainID,
-		"--fees=20000upokt",
-		"--home="+os.Getenv("HOME")+"/.pocket",
-		"-y")
+	args := []string{"tx", "application", "stake-application",
+		"--config=" + configFile,
+		"--from=" + address,
+		"--node=" + node,
+		"--chain-id=" + chainID,
+		"--fees=20000upokt"}
+
+	// Add optional pocketd home flag (only if specified in config)
+	if config.Config.PocketdHome != "" {
+		args = append(args, "--home="+config.Config.PocketdHome)
+	} else {
+		args = append(args, "--home="+os.Getenv("HOME")+"/.pocket")
+	}
+
+	// Add keyring-backend if specified
+	if config.Config.KeyringBackend != "" {
+		args = append(args, "--keyring-backend="+config.Config.KeyringBackend)
+	}
+
+	args = append(args, "-y")
+	cmd := exec.Command("pocketd", args...)
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -1490,7 +1503,7 @@ func createClickableLink(url, displayText string) string {
 	return fmt.Sprintf("\x1b]8;;%s\x1b\\%s\x1b]8;;\x1b\\", url, displayText)
 }
 
-func getCurrentStake(address, rpcEndpoint, networkName string) (int64, error) {
+func getCurrentStake(address, rpcEndpoint, networkName, keyringBackend, pocketdHome string) (int64, error) {
 	var chainID string
 	switch networkName {
 	case "pocket":
@@ -1501,11 +1514,24 @@ func getCurrentStake(address, rpcEndpoint, networkName string) (int64, error) {
 		return 0, fmt.Errorf("unsupported network: %s", networkName)
 	}
 
-	cmd := exec.Command("pocketd", "query", "application", "show-application", address,
-		"--node="+rpcEndpoint,
-		"--chain-id="+chainID,
-		"--home="+os.Getenv("HOME")+"/.pocket",
-		"--output=json")
+	args := []string{"query", "application", "show-application", address,
+		"--node=" + rpcEndpoint,
+		"--chain-id=" + chainID,
+		"--output=json"}
+
+	// Add optional home flag
+	if pocketdHome != "" {
+		args = append(args, "--home="+pocketdHome)
+	} else {
+		args = append(args, "--home="+os.Getenv("HOME")+"/.pocket")
+	}
+
+	// Add keyring-backend if specified
+	if keyringBackend != "" {
+		args = append(args, "--keyring-backend="+keyringBackend)
+	}
+
+	cmd := exec.Command("pocketd", args...)
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -1584,7 +1610,7 @@ func (m model) loadApplicationDetailsCmd(address string) tea.Cmd {
 		}
 
 		// Query application details
-		appDetails, err := queryApplicationDetails(address, network.RPCEndpoint, m.currentNetwork)
+		appDetails, err := queryApplicationDetails(address, network.RPCEndpoint, m.currentNetwork, m.config.Config.KeyringBackend, m.config.Config.PocketdHome)
 		if err != nil {
 			return applicationDetailsLoadedMsg{
 				address: address,
@@ -1593,7 +1619,7 @@ func (m model) loadApplicationDetailsCmd(address string) tea.Cmd {
 		}
 
 		// Query bank balances
-		bankBalance, err := queryBankBalances(address, network.RPCEndpoint, m.currentNetwork)
+		bankBalance, err := queryBankBalances(address, network.RPCEndpoint, m.currentNetwork, m.config.Config.KeyringBackend, m.config.Config.PocketdHome)
 		if err != nil {
 			return applicationDetailsLoadedMsg{
 				address: address,
@@ -1609,7 +1635,7 @@ func (m model) loadApplicationDetailsCmd(address string) tea.Cmd {
 	}
 }
 
-func queryApplicationDetails(address, rpcEndpoint, networkName string) (string, error) {
+func queryApplicationDetails(address, rpcEndpoint, networkName, keyringBackend, pocketdHome string) (string, error) {
 	var chainID string
 	switch networkName {
 	case "pocket":
@@ -1620,11 +1646,24 @@ func queryApplicationDetails(address, rpcEndpoint, networkName string) (string, 
 		return "", fmt.Errorf("unsupported network: %s", networkName)
 	}
 
-	cmd := exec.Command("pocketd", "query", "application", "show-application", address,
-		"--node="+rpcEndpoint,
-		"--chain-id="+chainID,
-		"--home="+os.Getenv("HOME")+"/.pocket",
-		"--output=json")
+	args := []string{"query", "application", "show-application", address,
+		"--node=" + rpcEndpoint,
+		"--chain-id=" + chainID,
+		"--output=json"}
+
+	// Add optional home flag
+	if pocketdHome != "" {
+		args = append(args, "--home="+pocketdHome)
+	} else {
+		args = append(args, "--home="+os.Getenv("HOME")+"/.pocket")
+	}
+
+	// Add keyring-backend if specified
+	if keyringBackend != "" {
+		args = append(args, "--keyring-backend="+keyringBackend)
+	}
+
+	cmd := exec.Command("pocketd", args...)
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -1634,7 +1673,7 @@ func queryApplicationDetails(address, rpcEndpoint, networkName string) (string, 
 	return string(output), nil
 }
 
-func queryBankBalances(address, rpcEndpoint, networkName string) (string, error) {
+func queryBankBalances(address, rpcEndpoint, networkName, keyringBackend, pocketdHome string) (string, error) {
 	var chainID string
 	switch networkName {
 	case "pocket":
@@ -1645,11 +1684,24 @@ func queryBankBalances(address, rpcEndpoint, networkName string) (string, error)
 		return "", fmt.Errorf("unsupported network: %s", networkName)
 	}
 
-	cmd := exec.Command("pocketd", "query", "bank", "balances", address,
-		"--node="+rpcEndpoint,
-		"--chain-id="+chainID,
-		"--home="+os.Getenv("HOME")+"/.pocket",
-		"--output=json")
+	args := []string{"query", "bank", "balances", address,
+		"--node=" + rpcEndpoint,
+		"--chain-id=" + chainID,
+		"--output=json"}
+
+	// Add optional home flag
+	if pocketdHome != "" {
+		args = append(args, "--home="+pocketdHome)
+	} else {
+		args = append(args, "--home="+os.Getenv("HOME")+"/.pocket")
+	}
+
+	// Add keyring-backend if specified
+	if keyringBackend != "" {
+		args = append(args, "--keyring-backend="+keyringBackend)
+	}
+
+	cmd := exec.Command("pocketd", args...)
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -1959,15 +2011,28 @@ func fundApplication(address string, amount int64, config *Config, networkName s
 
 	// Execute pocketd bank send command
 	amountWithDenom := fmt.Sprintf("%dupokt", amount)
-	cmd := exec.Command("pocketd", "tx", "bank", "send",
+	args := []string{"tx", "bank", "send",
 		network.Bank,
 		address,
 		amountWithDenom,
-		"--node="+node,
-		"--chain-id="+chainID,
-		"--fees=20000upokt",
-		"--home="+os.Getenv("HOME")+"/.pocket",
-		"-y")
+		"--node=" + node,
+		"--chain-id=" + chainID,
+		"--fees=20000upokt"}
+
+	// Add optional pocketd home flag (only if specified in config)
+	if config.Config.PocketdHome != "" {
+		args = append(args, "--home="+config.Config.PocketdHome)
+	} else {
+		args = append(args, "--home="+os.Getenv("HOME")+"/.pocket")
+	}
+
+	// Add keyring-backend if specified
+	if config.Config.KeyringBackend != "" {
+		args = append(args, "--keyring-backend="+config.Config.KeyringBackend)
+	}
+
+	args = append(args, "-y")
+	cmd := exec.Command("pocketd", args...)
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -2084,9 +2149,19 @@ func fundAllApplications(amount int64, config *Config, networkName string) (stri
 		"--yes",
 		"--gas=auto",
 		"--gas-prices=1upokt",
-		"--gas-adjustment=2.5",
-		"--home="+os.Getenv("HOME")+"/.pocket",
-	)
+		"--gas-adjustment=2.5")
+
+	// Add optional pocketd home flag (only if specified in config)
+	if config.Config.PocketdHome != "" {
+		args = append(args, "--home="+config.Config.PocketdHome)
+	} else {
+		args = append(args, "--home="+os.Getenv("HOME")+"/.pocket")
+	}
+
+	// Add keyring-backend if specified
+	if config.Config.KeyringBackend != "" {
+		args = append(args, "--keyring-backend="+config.Config.KeyringBackend)
+	}
 
 	// Execute pocketd multi-send command
 	cmd := exec.Command("pocketd", args...)
