@@ -15,18 +15,29 @@ type Application struct {
 	BalancePOKT float64 // Bank balance in POKT
 }
 
-func QueryApplications(rpcEndpoint, gateway, keyringBackend, pocketdHome string) ([]Application, error) {
+func QueryApplications(rpcEndpoint, gateway, keyringBackend, pocketdHome, networkName string) ([]Application, error) {
 	// Build the command equivalent to:
 	// pocketd q application list-application -o json $MAINNODE | jq '.applications[] | select(.delegatee_gateway_addresses[] == "gateway") | {address, stake_amount: .stake.amount, service_id: .service_configs[].service_id}'
 	// Use --limit 10000 to ensure we get all applications (pagination workaround)
 
-	args := []string{"q", "application", "list-application", "-o", "json", "--node", rpcEndpoint, "--limit", "10000"}
+	// Determine chain ID based on network name
+	var chainID string
+	switch networkName {
+	case "pocket":
+		chainID = "pocket"
+	case "pocket-beta":
+		chainID = "pocket-beta"
+	default:
+		return nil, fmt.Errorf("unsupported network: %s", networkName)
+	}
+
+	args := []string{"q", "application", "list-application", "-o", "json", "--node", rpcEndpoint, "--chain-id", chainID, "--limit", "10000"}
 	args = AppendPocketdFlags(args, keyringBackend, pocketdHome)
 	cmd := exec.Command("pocketd", args...)
 
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute pocketd command: %w", err)
+		return nil, fmt.Errorf("failed to execute pocketd command: %w, output: %s", err, string(output))
 	}
 
 	// Parse the JSON output
@@ -101,9 +112,9 @@ func QueryBankBalance(address, rpcEndpoint, keyringBackend, pocketdHome string) 
 	args = AppendPocketdFlags(args, keyringBackend, pocketdHome)
 	cmd := exec.Command("pocketd", args...)
 
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return 0, fmt.Errorf("failed to execute pocketd balance query: %w", err)
+		return 0, fmt.Errorf("failed to execute pocketd balance query: %w, output: %s", err, string(output))
 	}
 
 	// Parse the JSON output

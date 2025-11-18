@@ -132,9 +132,9 @@ func loadLogoLine() string {
 	return "GASMS"
 }
 
-func loadApplicationsCmd(rpcEndpoint, gateway, bankAddress, keyringBackend, pocketdHome string) tea.Cmd {
+func loadApplicationsCmd(rpcEndpoint, gateway, bankAddress, keyringBackend, pocketdHome, networkName string) tea.Cmd {
 	return func() tea.Msg {
-		apps, err := QueryApplications(rpcEndpoint, gateway, keyringBackend, pocketdHome)
+		apps, err := QueryApplications(rpcEndpoint, gateway, keyringBackend, pocketdHome, networkName)
 		if err != nil {
 			return applicationsLoadedMsg{apps: apps, bankBalance: 0, err: err}
 		}
@@ -204,7 +204,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.currentNetwork = m.networkList[0]
 		if firstNetwork, exists := m.config.Config.Networks[m.currentNetwork]; exists && len(firstNetwork.Gateways) > 0 {
 			m.currentGateway = firstNetwork.Gateways[0]
-			return m, loadApplicationsCmd(firstNetwork.RPCEndpoint, firstNetwork.Gateways[0], firstNetwork.Bank, m.config.Config.KeyringBackend, m.config.Config.PocketdHome)
+			return m, loadApplicationsCmd(firstNetwork.RPCEndpoint, firstNetwork.Gateways[0], firstNetwork.Bank, m.config.Config.KeyringBackend, m.config.Config.PocketdHome, m.currentNetwork)
 		}
 		m.err = fmt.Errorf("first network %s has no gateways configured", m.currentNetwork)
 		return m, nil
@@ -250,7 +250,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if network, exists := m.config.Config.Networks[m.currentNetwork]; exists && len(network.Gateways) > 0 {
 				m.loading = true
 				return m, tea.Batch(
-					loadApplicationsCmd(network.RPCEndpoint, m.currentGateway, network.Bank, m.config.Config.KeyringBackend, m.config.Config.PocketdHome),
+					loadApplicationsCmd(network.RPCEndpoint, m.currentGateway, network.Bank, m.config.Config.KeyringBackend, m.config.Config.PocketdHome, m.currentNetwork),
 					tea.Tick(time.Second*10, func(t time.Time) tea.Msg {
 						return "clear_tx_hash"
 					}),
@@ -348,7 +348,7 @@ func (m model) updateTable(msg tea.KeyMsg) (model, tea.Cmd) {
 		if m.config != nil {
 			if network, exists := m.config.Config.Networks[m.currentNetwork]; exists && len(network.Gateways) > 0 {
 				m.loading = true
-				return m, loadApplicationsCmd(network.RPCEndpoint, m.currentGateway, network.Bank, m.config.Config.KeyringBackend, m.config.Config.PocketdHome)
+				return m, loadApplicationsCmd(network.RPCEndpoint, m.currentGateway, network.Bank, m.config.Config.KeyringBackend, m.config.Config.PocketdHome, m.currentNetwork)
 			}
 		}
 
@@ -540,7 +540,7 @@ func (m model) updateNetworkSelect(msg tea.KeyMsg) (model, tea.Cmd) {
 				m.currentGateway = network.Gateways[0]
 				m.state = stateTable
 				m.loading = true
-				return m, loadApplicationsCmd(network.RPCEndpoint, network.Gateways[0], network.Bank, m.config.Config.KeyringBackend, m.config.Config.PocketdHome)
+				return m, loadApplicationsCmd(network.RPCEndpoint, network.Gateways[0], network.Bank, m.config.Config.KeyringBackend, m.config.Config.PocketdHome, selectedNetwork)
 			}
 		}
 		m.state = stateTable
@@ -572,7 +572,7 @@ func (m model) updateGatewaySelect(msg tea.KeyMsg) (model, tea.Cmd) {
 					m.currentGateway = selectedGateway
 					m.state = stateTable
 					m.loading = true
-					return m, loadApplicationsCmd(network.RPCEndpoint, selectedGateway, network.Bank, m.config.Config.KeyringBackend, m.config.Config.PocketdHome)
+					return m, loadApplicationsCmd(network.RPCEndpoint, selectedGateway, network.Bank, m.config.Config.KeyringBackend, m.config.Config.PocketdHome, m.currentNetwork)
 				}
 			}
 		}
