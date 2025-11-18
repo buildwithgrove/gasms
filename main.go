@@ -1519,16 +1519,11 @@ func getCurrentStake(address, rpcEndpoint, networkName, keyringBackend, pocketdH
 		"--chain-id=" + chainID,
 		"--output=json"}
 
-	// Add optional home flag
+	// Add optional home flag (keyring-backend not needed for query commands)
 	if pocketdHome != "" {
 		args = append(args, "--home="+pocketdHome)
 	} else {
 		args = append(args, "--home="+os.Getenv("HOME")+"/.pocket")
-	}
-
-	// Add keyring-backend if specified
-	if keyringBackend != "" {
-		args = append(args, "--keyring-backend="+keyringBackend)
 	}
 
 	cmd := exec.Command("pocketd", args...)
@@ -1651,16 +1646,11 @@ func queryApplicationDetails(address, rpcEndpoint, networkName, keyringBackend, 
 		"--chain-id=" + chainID,
 		"--output=json"}
 
-	// Add optional home flag
+	// Add optional home flag (keyring-backend not needed for query commands)
 	if pocketdHome != "" {
 		args = append(args, "--home="+pocketdHome)
 	} else {
 		args = append(args, "--home="+os.Getenv("HOME")+"/.pocket")
-	}
-
-	// Add keyring-backend if specified
-	if keyringBackend != "" {
-		args = append(args, "--keyring-backend="+keyringBackend)
 	}
 
 	cmd := exec.Command("pocketd", args...)
@@ -1689,16 +1679,11 @@ func queryBankBalances(address, rpcEndpoint, networkName, keyringBackend, pocket
 		"--chain-id=" + chainID,
 		"--output=json"}
 
-	// Add optional home flag
+	// Add optional home flag (keyring-backend not needed for query commands)
 	if pocketdHome != "" {
 		args = append(args, "--home="+pocketdHome)
 	} else {
 		args = append(args, "--home="+os.Getenv("HOME")+"/.pocket")
-	}
-
-	// Add keyring-backend if specified
-	if keyringBackend != "" {
-		args = append(args, "--keyring-backend="+keyringBackend)
 	}
 
 	cmd := exec.Command("pocketd", args...)
