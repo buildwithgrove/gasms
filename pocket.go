@@ -32,7 +32,10 @@ func QueryApplications(rpcEndpoint, gateway, keyringBackend, pocketdHome, networ
 	}
 
 	args := []string{"q", "application", "list-application", "-o", "json", "--node", rpcEndpoint, "--chain-id", chainID, "--limit", "10000"}
-	args = AppendPocketdFlags(args, keyringBackend, pocketdHome)
+	// Only add --home flag for query commands (keyring-backend not needed for queries)
+	if pocketdHome != "" {
+		args = append(args, "--home="+pocketdHome)
+	}
 	cmd := exec.Command("pocketd", args...)
 
 	output, err := cmd.CombinedOutput()
@@ -109,7 +112,10 @@ func QueryApplications(rpcEndpoint, gateway, keyringBackend, pocketdHome, networ
 
 func QueryBankBalance(address, rpcEndpoint, keyringBackend, pocketdHome string) (float64, error) {
 	args := []string{"q", "bank", "balances", address, "--node", rpcEndpoint, "--output", "json"}
-	args = AppendPocketdFlags(args, keyringBackend, pocketdHome)
+	// Only add --home flag for query commands (keyring-backend not needed for queries)
+	if pocketdHome != "" {
+		args = append(args, "--home="+pocketdHome)
+	}
 	cmd := exec.Command("pocketd", args...)
 
 	output, err := cmd.CombinedOutput()
