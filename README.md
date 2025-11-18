@@ -66,6 +66,62 @@ The **G**rove **A**ppStakes **M**anagement **S**ystem or **GASMS** is a **TUI** 
 *Click to watch a demonstration of GASMS features and functionality*
 
 ## Installation
+
+### Quick Start (Pre-built Binaries)
+
+1. **Download the latest binary** for your platform from [Releases](https://github.com/yourusername/gasms/releases):
+   - **Linux Intel/AMD**: `gasms-linux-amd64`
+   - **Linux ARM**: `gasms-linux-arm64`
+   - **macOS Intel**: `gasms-darwin-amd64`
+   - **macOS Apple Silicon (M1/M2/M3)**: `gasms-darwin-arm64`
+   - **Windows**: `gasms-windows-amd64.exe`
+
+2. **Verify the download** (optional but recommended):
+   ```bash
+   # Download checksums.txt from the release
+   # Verify your binary
+   sha256sum -c checksums.txt --ignore-missing
+   ```
+
+3. **Make the binary executable** (Linux/macOS only):
+   ```bash
+   chmod +x gasms-*
+   ```
+
+4. **Move to your PATH** (optional):
+   ```bash
+   # Linux/macOS
+   sudo mv gasms-* /usr/local/bin/gasms
+
+   # Or for user-only install
+   mkdir -p ~/.local/bin
+   mv gasms-* ~/.local/bin/gasms
+   # Add ~/.local/bin to your PATH if not already
+   ```
+
+5. **Install pocketd** (required dependency):
+   - Follow the [pocketd installation guide](https://github.com/pokt-network/poktroll)
+   - Ensure `pocketd` is in your PATH: `which pocketd`
+   - Verify version: `pocketd version` (requires v0.1.30+)
+
+6. **Configure your keyring** (required for transactions):
+   ```bash
+   # Import or create keys for your applications and bank address
+   pocketd keys add myapp --keyring-backend test
+
+   # Or import existing keys
+   pocketd keys import myapp key.json --keyring-backend test
+   ```
+
+7. **Create `config.yaml`** in your working directory (see Configuration section below)
+
+8. **Run GASMS**:
+   ```bash
+   ./gasms
+   # Or if installed to PATH
+   gasms
+   ```
+
 ### From Source
 ```bash
 # Clone the repository
@@ -86,39 +142,54 @@ make build-all
 
 # Binaries will be in bin/ directory:
 # - gasms-linux-amd64
-# - gasms-linux-arm64  
+# - gasms-linux-arm64
 # - gasms-darwin-amd64
 # - gasms-darwin-arm64
 # - gasms-windows-amd64.exe
+# - checksums.txt (SHA256 checksums)
 ```
 
-### Configuration
+## Configuration
 Create a `config.yaml` file in your working directory:
 ```yaml
 config:
+  # Optional: Configure keyring backend (defaults to pocketd's default)
+  # Options: os, file, test, kwallet, pass, keychain, memory
+  keyring-backend: test
+
+  # Optional: Configure pocketd home directory (defaults to ~/.pocket)
+  # pocketd-home: /custom/path/to/.pocket
+
   # Stake threshold configuration (denominated in uPOKT)
   thresholds:
     warning_threshold: 2000000000  # 2000 POKT in uPOKT
     danger_threshold: 1000000000   # 1000 POKT in uPOKT
-  
-  networks: 
+
+  networks:
     pocket:
       rpc_endpoint: <NETWORK_RPC_URL>
-      gateways: 
+      gateways:
         - <GATEWAY_ADDRESS>
       bank: <BANK_ADDRESS>  # Required for upstake and fund operations
       applications:
-        - application1
+        - <APPLICATION_ADDRESS_1>
+        - <APPLICATION_ADDRESS_2>
         # ... more applications
     pocket-beta:
       rpc_endpoint: <NETWORK_RPC_URL>
-      gateways: 
+      gateways:
         - <GATEWAY_ADDRESS>
       bank: <BANK_ADDRESS>  # Required for upstake and fund operations
       applications:
-        - application1
+        - <APPLICATION_ADDRESS_1>
         # ... more applications
 ```
+
+### Configuration Notes:
+- **keyring-backend**: Must match the backend used when importing keys with `pocketd keys import`
+- **bank**: The address used to pay for all transaction fees and stake amounts
+- **applications**: List of application addresses that belong to this gateway (used for batch operations)
+- All keys (bank and application addresses) must exist in your pocketd keyring and be accessible without password prompts
 
 ## Usage
 ```bash
@@ -245,6 +316,42 @@ pokt198765432109876543210987654321098765432
 ```
 
 Both scripts include comprehensive help documentation accessible with the `-h` or `--help` flag.
+
+## Troubleshooting
+
+### "failed to execute pocketd command: exit status 1"
+This usually means pocketd is not installed or not in your PATH:
+```bash
+# Check if pocketd is installed
+which pocketd
+
+# Check pocketd version (requires v0.1.30+)
+pocketd version
+```
+
+### "unknown flag: --keyring-backend"
+This error occurs with older versions of pocketd. Update to v0.1.30 or later:
+```bash
+pocketd version
+```
+
+### Keys not found or permission denied
+Ensure all keys are imported into your keyring:
+```bash
+# List available keys
+pocketd keys list --keyring-backend test
+
+# Import a key if needed
+pocketd keys import myapp key.json --keyring-backend test
+```
+
+### Applications not showing up
+- Verify your gateway address in `config.yaml` is correct
+- Check that applications are actually staked with your gateway:
+  ```bash
+  pocketd q application show-application <APP_ADDRESS> --node <RPC_ENDPOINT> --chain-id pocket
+  ```
+- Ensure the RPC endpoint is accessible and responding
 
 ## Helper Functions
 ### Helper Function to get current stakes:

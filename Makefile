@@ -37,6 +37,15 @@ build-all: clean deps
 	GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 .
 	# Windows
 	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe .
+	# Generate checksums
+	@$(MAKE) checksums
+
+# Generate SHA256 checksums for all binaries
+checksums:
+	@echo "Generating SHA256 checksums..."
+	@cd $(BUILD_DIR) && sha256sum $(BINARY_NAME)-* > checksums.txt
+	@echo "Checksums saved to $(BUILD_DIR)/checksums.txt"
+	@cat $(BUILD_DIR)/checksums.txt
 
 # Install dependencies
 deps:
@@ -76,7 +85,8 @@ lint:
 help:
 	@echo "Available targets:"
 	@echo "  build      - Build binary for current platform"
-	@echo "  build-all  - Build binaries for all platforms"
+	@echo "  build-all  - Build binaries for all platforms (includes checksums)"
+	@echo "  checksums  - Generate SHA256 checksums for binaries"
 	@echo "  clean      - Clean build directory"
 	@echo "  deps       - Install dependencies"
 	@echo "  test       - Run tests"
